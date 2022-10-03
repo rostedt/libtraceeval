@@ -1,0 +1,14 @@
+*~
+\#*\#
+.pc
+libtraceeval.pc
+TAGS
+tags
+lib/
+bin/
+patches/
+build_prefix
+build_uninstall
+te_version.h
+*.o
+.*.d

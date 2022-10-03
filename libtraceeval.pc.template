@@ -1,0 +1,10 @@
+prefix=INSTALL_PREFIX
+libdir=${prefix}/LIB_DIR
+includedir=${prefix}/HEADER_DIR
+
+Name: libtraceeval
+URL: https://git.kernel.org/pub/scm/libs/libtrace/libtraceeval.git/
+Description: Library to help in analyzing tracing data
+Version: LIB_VERSION
+Cflags: -I${includedir}
+Libs: -L${libdir} -ltraceeval
