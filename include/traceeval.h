@@ -88,4 +88,15 @@ ssize_t traceeval_result_keys_total(struct traceeval *teval, struct traceeval_ke
 ssize_t traceeval_result_keys_max(struct traceeval *teval, struct traceeval_key *keys);
 ssize_t traceeval_result_keys_min(struct traceeval *teval, struct traceeval_key *keys);
 
+struct traceeval *traceeval_1_alloc(const char *name, struct traceeval_key_info info[1]);
+int traceeval_1_start(struct traceeval *teval, struct traceeval_key key,
+		      unsigned long long start);
+int traceeval_1_set_private(struct traceeval *teval, struct traceeval_key key,
+			    void *data);
+void *traceeval_1_get_private(struct traceeval *teval, struct traceeval_key key);
+int traceeval_1_stop(struct traceeval *teval, struct traceeval_key key,
+		     unsigned long long stop);
+
+struct traceeval *traceeval_2_alloc(const char *name, struct traceeval_key_info kinfo[2]);
+
 #endif /* __LIBTRACEEVAL_H__ */

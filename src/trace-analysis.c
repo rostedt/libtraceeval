@@ -410,3 +410,56 @@ traceeval_result_keys_min(struct traceeval *teval, struct traceeval_key *keys)
 
 	return eval->min;
 }
+
+struct traceeval *
+traceeval_1_alloc(const char *name, struct traceeval_key_info kinfo[1])
+{
+	struct traceeval_key_info_array karray = {
+		.nr_keys = 1,
+		.keys = kinfo,
+	};
+
+	return traceeval_n_alloc(name, &karray);
+}
+
+int traceeval_1_start(struct traceeval *teval, struct traceeval_key key,
+		      unsigned long long start)
+{
+	struct traceeval_key keys[1] = { key };
+
+	return traceeval_n_start(teval, keys, start);
+}
+
+int traceeval_1_set_private(struct traceeval *teval, struct traceeval_key key,
+			    void *data)
+{
+	struct traceeval_key keys[1] = { key };
+
+	return traceeval_n_set_private(teval, keys, data);
+}
+
+void *traceeval_1_get_private(struct traceeval *teval, struct traceeval_key key)
+{
+	struct traceeval_key keys[1] = { key };
+
+	return traceeval_n_get_private(teval, keys);
+}
+
+int traceeval_1_stop(struct traceeval *teval, struct traceeval_key key,
+		     unsigned long long stop)
+{
+	struct traceeval_key keys[1] = { key };
+
+	return traceeval_n_stop(teval, keys, stop);
+}
+
+struct traceeval *
+traceeval_2_alloc(const char *name, struct traceeval_key_info kinfo[2])
+{
+	struct traceeval_key_info_array karray = {
+		.nr_keys = 2,
+		.keys = kinfo,
+	};
+
+	return traceeval_n_alloc(name, &karray);
+}
