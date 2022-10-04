@@ -103,7 +103,7 @@ void traceeval_free(struct traceeval *teval)
 }
 
 static int cmp_keys(struct traceeval_key_info_array *tarray,
-		    struct traceeval_key *A, struct traceeval_key *B)
+		    struct traceeval_key *A, struct traceeval_key *B, int *err)
 {
 	struct traceeval_key_info *kinfo;
 	unsigned long long A_val, B_val;
@@ -114,12 +114,16 @@ static int cmp_keys(struct traceeval_key_info_array *tarray,
 		kinfo = &tarray->keys[i];
 
 		/* TBD arrays */
-		if (kinfo->count)
+		if (kinfo->count) {
+			*err = 1;
 			return -1;
+		}
 
 		if (A[i].type != kinfo->type ||
-		    B[i].type != kinfo->type)
+		    B[i].type != kinfo->type) {
+			*err = 1;
 			return -1;
+		}
 
 		switch (kinfo->type) {
 		case TRACEEVAL_TYPE_STRING:
@@ -150,6 +154,7 @@ static int cmp_keys(struct traceeval_key_info_array *tarray,
 			break;
 		case TRACEEVAL_TYPE_ARRAY:
 		default:
+			*err = 1;
 			return -1;
 		}
 		if (A_val > B_val)
@@ -162,7 +167,7 @@ static int cmp_keys(struct traceeval_key_info_array *tarray,
 
 static struct eval_instance *
 _find_eval_instance(struct traceeval *teval, struct traceeval_key *keys,
-		   int *B, int *E, int *N)
+		   int *B, int *E, int *N, int *err)
 {
 	struct eval_instance *eval = NULL;
 	int b, e, n;
@@ -174,10 +179,14 @@ _find_eval_instance(struct traceeval *teval, struct traceeval_key *keys,
 	while (b <= e) {
 		n = (b + e) / 2;
 		eval = &teval->evals[n];
-		ret = cmp_keys(&teval->array, keys, eval->keys);
+		ret = cmp_keys(&teval->array, keys, eval->keys, err);
 		if (ret > 0) {
 			b = n + 1;
 		} else if (ret < 0) {
+			if (*err) {
+				errno = EINVAL;
+				return NULL;
+			}
 			e = n - 1;
 		} else
 			break;
@@ -195,8 +204,11 @@ get_eval_instance(struct traceeval *teval, struct traceeval_key *keys)
 {
 	struct eval_instance *eval;
 	int b, e, n;
+	int err = 0;
 
-	eval = _find_eval_instance(teval, keys, &b, &e, &n);
+	eval = _find_eval_instance(teval, keys, &b, &e, &n, &err);
+	if (err)
+		return NULL;
 
 	if (b > e) {
 		eval = realloc(teval->evals, sizeof(*eval) * (teval->nr_evals + 1));
@@ -227,8 +239,12 @@ find_eval_instance(struct traceeval *teval, struct traceeval_key *keys)
 {
 	struct eval_instance *eval;
 	int b, e, n;
+	int err = 0;
 
-	eval = _find_eval_instance(teval, keys, &b, &e, &n);
+	eval = _find_eval_instance(teval, keys, &b, &e, &n, &err);
+	if (err)
+		return NULL;
+
 	return b > e ? NULL : eval;
 }
 
