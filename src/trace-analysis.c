@@ -261,6 +261,22 @@ int traceeval_n_start(struct traceeval *teval, struct traceeval_key *keys,
 	return 0;
 }
 
+int traceeval_n_continue(struct traceeval *teval, struct traceeval_key *keys,
+			 unsigned long long start)
+{
+	struct eval_instance *eval;
+
+	eval = get_eval_instance(teval, keys);
+	if (!eval)
+		return -1;
+
+	if (eval->last)
+		return 0;
+
+	eval->last = start;
+	return 0;
+}
+
 int traceeval_n_set_private(struct traceeval *teval, struct traceeval_key *keys,
 			    void *data)
 {
@@ -444,6 +460,14 @@ int traceeval_1_start(struct traceeval *teval, struct traceeval_key key,
 	struct traceeval_key keys[1] = { key };
 
 	return traceeval_n_start(teval, keys, start);
+}
+
+int traceeval_1_continue(struct traceeval *teval, struct traceeval_key key,
+			 unsigned long long start)
+{
+	struct traceeval_key keys[1] = { key };
+
+	return traceeval_n_continue(teval, keys, start);
 }
 
 int traceeval_1_set_private(struct traceeval *teval, struct traceeval_key key,
