@@ -6,6 +6,14 @@
 #include <errno.h>
 #include <traceeval.h>
 
+enum sort_type {
+	KEYS,
+	TOTALS,
+	MAX,
+	MIN,
+	CNT,
+};
+
 struct traceeval_key_info_array {
 	size_t				nr_keys;
 	struct traceeval_key_info	*keys;
@@ -26,6 +34,8 @@ struct traceeval {
 	struct traceeval_key_info_array		array;
 	struct eval_instance			*evals;
 	size_t					nr_evals;
+	struct eval_instance			*results;
+	enum sort_type				sort_type;
 };
 
 struct traceeval_result_array {
@@ -199,6 +209,12 @@ _find_eval_instance(struct traceeval *teval, struct traceeval_key *keys,
 	return eval;
 }
 
+static void free_results (struct traceeval *teval)
+{
+	free(teval->results);
+	teval->results = NULL;
+}
+
 static struct eval_instance *
 get_eval_instance(struct traceeval *teval, struct traceeval_key *keys)
 {
@@ -229,6 +245,12 @@ get_eval_instance(struct traceeval *teval, struct traceeval_key *keys)
 			eval->keys[b] = keys[b];
 		eval->nr_keys = teval->array.nr_keys;
 		teval->nr_evals++;
+
+		/*
+		 * Results are a copy of evals, it is no longer reliable
+		 * after a realloc, and is not sorted the same.
+		 */
+		free_results(teval);
 	}
 
 	return eval;
@@ -354,44 +376,69 @@ traceeval_key_array_indx(struct traceeval_key_array *karray, size_t index)
 	return &eval->keys[index];
 }
 
-struct traceeval_key_array *
-traceeval_result_indx_key_array(struct traceeval *teval, size_t index)
+static struct eval_instance *get_result(struct traceeval *teval, size_t index)
 {
 	if (index >= teval->nr_evals)
 		return NULL;
-	return (struct traceeval_key_array *)&teval->evals[index];
+
+	if (teval->results)
+		return &teval->results[index];
+	return &teval->evals[index];
+}
+
+struct traceeval_key_array *
+traceeval_result_indx_key_array(struct traceeval *teval, size_t index)
+{
+	struct eval_instance *eval = get_result(teval, index);
+
+	if (!eval)
+		return NULL;
+
+	return (struct traceeval_key_array *)eval;
 }
 
 ssize_t
 traceeval_result_indx_cnt(struct traceeval *teval, size_t index)
 {
-	if (index >= teval->nr_evals)
+	struct eval_instance *eval = get_result(teval, index);
+
+	if (!eval)
 		return -1;
-	return teval->evals[index].cnt;
+
+	return eval->cnt;
 }
 
 ssize_t
 traceeval_result_indx_total(struct traceeval *teval, size_t index)
 {
-	if (index >= teval->nr_evals)
+	struct eval_instance *eval = get_result(teval, index);
+
+	if (!eval)
 		return -1;
-	return teval->evals[index].total;
+
+	return eval->total;
 }
 
 ssize_t
 traceeval_result_indx_max(struct traceeval *teval, size_t index)
 {
-	if (index >= teval->nr_evals)
+	struct eval_instance *eval = get_result(teval, index);
+
+	if (!eval)
 		return -1;
-	return teval->evals[index].max;
+
+	return eval->max;
 }
 
 ssize_t
 traceeval_result_indx_min(struct traceeval *teval, size_t index)
 {
-	if (index >= teval->nr_evals)
+	struct eval_instance *eval = get_result(teval, index);
+
+	if (!eval)
 		return -1;
-	return teval->evals[index].min;
+
+	return eval->min;
 }
 
 
@@ -502,4 +549,146 @@ traceeval_2_alloc(const char *name, struct traceeval_key_info kinfo[2])
 	};
 
 	return traceeval_n_alloc(name, &karray);
+}
+
+static int create_results(struct traceeval *teval)
+{
+	int i;
+
+	if (teval->results)
+		return 0;
+
+	teval->results = calloc(teval->nr_evals, sizeof(*teval->results));
+	if (!teval->results)
+		return -1;
+	for (i = 0; i < teval->nr_evals; i++)
+		teval->results[i] = teval->evals[i];
+
+	return 0;
+}
+
+static int cmp_totals(const void *A, const void *B)
+{
+	const struct eval_instance *a = A;
+	const struct eval_instance *b = B;
+
+	if (a->total < b->total)
+		return -1;
+	return a->total > b->total;
+}
+
+static int cmp_max(const void *A, const void *B)
+{
+	const struct eval_instance *a = A;
+	const struct eval_instance *b = B;
+
+	if (a->max < b->max)
+		return -1;
+	return a->max > b->max;
+}
+
+static int cmp_min(const void *A, const void *B)
+{
+	const struct eval_instance *a = A;
+	const struct eval_instance *b = B;
+
+	if (a->min < b->min)
+		return -1;
+	return a->min > b->min;
+}
+
+static int cmp_cnt(const void *A, const void *B)
+{
+	const struct eval_instance *a = A;
+	const struct eval_instance *b = B;
+
+	if (a->cnt < b->cnt)
+		return -1;
+	return a->cnt > b->cnt;
+}
+
+static int cmp_inverse(const void *A, const void *B, void *cmp)
+{
+	int (*cmp_func)(const void *, const void *) = cmp;
+
+	return cmp_func(B, A);
+}
+
+static int eval_sort(struct traceeval *teval, enum sort_type sort_type, bool ascending)
+{
+	int (*cmp_func)(const void *, const void *);
+
+	if (create_results(teval) < 0)
+		return -1;
+
+	if (teval->sort_type == sort_type)
+		return 0;
+
+	switch (sort_type) {
+	case TOTALS:
+		cmp_func = cmp_totals;
+		break;
+	case MAX:
+		cmp_func = cmp_max;
+		break;
+	case MIN:
+		cmp_func = cmp_min;
+		break;
+	case CNT:
+		cmp_func = cmp_cnt;
+		break;
+	case KEYS:
+		return 0;
+	}
+
+	if (ascending)
+		qsort(teval->results, teval->nr_evals, sizeof(*teval->results), cmp_func);
+	else
+		qsort_r(teval->results, teval->nr_evals, sizeof(*teval->results),
+			cmp_inverse, cmp_func);
+	teval->sort_type = sort_type;
+	return 0;
+}
+
+int traceeval_sort_totals(struct traceeval *teval, bool ascending)
+{
+	return eval_sort(teval, TOTALS, ascending);
+}
+
+int traceeval_sort_max(struct traceeval *teval, bool ascending)
+{
+	return eval_sort(teval, MAX, ascending);
+}
+
+int traceeval_sort_min(struct traceeval *teval, bool ascending)
+{
+	return eval_sort(teval, MIN, ascending);
+}
+
+int traceeval_sort_cnt(struct traceeval *teval, bool ascending)
+{
+	return eval_sort(teval, CNT, ascending);
+}
+
+int traceeval_sort_keys(struct traceeval *teval, bool ascending)
+{
+	int i, nr;
+
+	if (ascending) {
+		/* evals are sorted by keys */
+		free_results(teval);
+		teval->sort_type = KEYS;
+		return 0;
+	}
+
+	if (create_results(teval) < 0)
+		return -1;
+
+	nr = teval->nr_evals - 1;
+
+	/* Just invert the evals */
+	for (i = 0; i <= nr; i++)
+		teval->results[i] = teval->evals[nr - i];
+
+	return 0;
 }

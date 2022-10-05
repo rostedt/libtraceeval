@@ -6,6 +6,7 @@
 #define __LIBTRACEEVAL_H__
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 typedef unsigned long long u64;
 typedef unsigned int u32;
@@ -102,5 +103,11 @@ int traceeval_1_continue(struct traceeval *teval, struct traceeval_key key,
 			 unsigned long long start);
 
 struct traceeval *traceeval_2_alloc(const char *name, struct traceeval_key_info kinfo[2]);
+
+int traceeval_sort_totals(struct traceeval *teval, bool ascending);
+int traceeval_sort_max(struct traceeval *teval, bool ascending);
+int traceeval_sort_min(struct traceeval *teval, bool ascending);
+int traceeval_sort_cnt(struct traceeval *teval, bool ascending);
+int traceeval_sort_keys(struct traceeval *teval, bool ascending);
 
 #endif /* __LIBTRACEEVAL_H__ */
