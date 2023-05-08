@@ -202,7 +202,7 @@ static void free_results (struct traceeval *teval)
 	teval->results = NULL;
 }
 
-static int make_key(struct traceeval *teval, struct traceeval_key *keys, int *err)
+static int make_key(struct traceeval *teval, const struct traceeval_key *keys, int *err)
 {
 	struct traceeval_key_info *kinfo;
 	bool calc;
@@ -267,7 +267,7 @@ static int make_key(struct traceeval *teval, struct traceeval_key *keys, int *er
 	return ret & HASH_MASK;
 }
 
-static struct eval_hash *find_eval(struct traceeval *teval, struct traceeval_key *keys,
+static struct eval_hash *find_eval(struct traceeval *teval, const struct traceeval_key *keys,
 				   int *err, int *pkey)
 {
 	struct eval_hash *ehash;
@@ -287,7 +287,7 @@ static struct eval_hash *find_eval(struct traceeval *teval, struct traceeval_key
 }
 
 static struct eval_hash *
-insert_eval(struct traceeval *teval, struct traceeval_key *keys, int key)
+insert_eval(struct traceeval *teval, const struct traceeval_key *keys, int key)
 {
 	struct eval_instance *eval;
 	struct eval_hash *ehash;
@@ -314,7 +314,7 @@ insert_eval(struct traceeval *teval, struct traceeval_key *keys, int key)
 }
 
 static struct eval_instance *
-get_eval_instance(struct traceeval *teval, struct traceeval_key *keys)
+get_eval_instance(struct traceeval *teval, const struct traceeval_key *keys)
 {
 	struct eval_hash *ehash;
 	int err = 0;
@@ -329,7 +329,7 @@ get_eval_instance(struct traceeval *teval, struct traceeval_key *keys)
 	return &ehash->eval;
 }
 
-int traceeval_n_start(struct traceeval *teval, struct traceeval_key *keys,
+int traceeval_n_start(struct traceeval *teval, const struct traceeval_key *keys,
 		      unsigned long long start)
 {
 	struct eval_instance *eval;
@@ -342,7 +342,7 @@ int traceeval_n_start(struct traceeval *teval, struct traceeval_key *keys,
 	return 0;
 }
 
-int traceeval_n_continue(struct traceeval *teval, struct traceeval_key *keys,
+int traceeval_n_continue(struct traceeval *teval, const struct traceeval_key *keys,
 			 unsigned long long start)
 {
 	struct eval_instance *eval;
@@ -358,7 +358,7 @@ int traceeval_n_continue(struct traceeval *teval, struct traceeval_key *keys,
 	return 0;
 }
 
-int traceeval_n_set_private(struct traceeval *teval, struct traceeval_key *keys,
+int traceeval_n_set_private(struct traceeval *teval, const struct traceeval_key *keys,
 			    void *data)
 {
 	struct eval_instance *eval;
@@ -372,7 +372,7 @@ int traceeval_n_set_private(struct traceeval *teval, struct traceeval_key *keys,
 	return 0;
 }
 
-void *traceeval_n_get_private(struct traceeval *teval, struct traceeval_key *keys)
+void *traceeval_n_get_private(struct traceeval *teval, const struct traceeval_key *keys)
 {
 	struct eval_hash *ehash;
 	int err = 0;
@@ -383,7 +383,7 @@ void *traceeval_n_get_private(struct traceeval *teval, struct traceeval_key *key
 	return ehash->eval.private;
 }
 
-int traceeval_n_stop(struct traceeval *teval, struct traceeval_key *keys,
+int traceeval_n_stop(struct traceeval *teval, const struct traceeval_key *keys,
 		     unsigned long long stop)
 {
 	struct eval_instance *eval;
@@ -425,7 +425,7 @@ size_t traceeval_key_array_nr(struct traceeval_key_array *karray)
 }
 
 const struct traceeval_key *
-traceeval_key_array_indx(struct traceeval_key_array *karray, size_t index)
+traceeval_key_array_indx(const struct traceeval_key_array *karray, size_t index)
 {
 	struct eval_instance *eval = (struct eval_instance *)karray;
 
@@ -533,7 +533,7 @@ traceeval_result_indx_min(struct traceeval *teval, size_t index)
 
 
 ssize_t
-traceeval_result_keys_cnt(struct traceeval *teval, struct traceeval_key *keys)
+traceeval_result_keys_cnt(struct traceeval *teval, const struct traceeval_key *keys)
 {
 	struct eval_hash *ehash;
 	int err = 0;
@@ -545,7 +545,7 @@ traceeval_result_keys_cnt(struct traceeval *teval, struct traceeval_key *keys)
 }
 
 ssize_t
-traceeval_result_keys_total(struct traceeval *teval, struct traceeval_key *keys)
+traceeval_result_keys_total(struct traceeval *teval, const struct traceeval_key *keys)
 {
 	struct eval_hash *ehash;
 	int err = 0;
@@ -557,7 +557,7 @@ traceeval_result_keys_total(struct traceeval *teval, struct traceeval_key *keys)
 }
 
 ssize_t
-traceeval_result_keys_max(struct traceeval *teval, struct traceeval_key *keys)
+traceeval_result_keys_max(struct traceeval *teval, const struct traceeval_key *keys)
 {
 	struct eval_hash *ehash;
 	int err = 0;
@@ -569,7 +569,7 @@ traceeval_result_keys_max(struct traceeval *teval, struct traceeval_key *keys)
 }
 
 ssize_t
-traceeval_result_keys_min(struct traceeval *teval, struct traceeval_key *keys)
+traceeval_result_keys_min(struct traceeval *teval, const struct traceeval_key *keys)
 {
 	struct eval_hash *ehash;
 	int err = 0;

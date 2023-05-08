@@ -60,24 +60,24 @@ struct traceeval *traceeval_n_alloc(const char *name,
 				    const struct traceeval_key_info_array *iarray);
 void traceeval_free(struct traceeval *teval);
 
-int traceeval_n_start(struct traceeval *teval, struct traceeval_key *keys,
+int traceeval_n_start(struct traceeval *teval, const struct traceeval_key *keys,
 		      unsigned long long start);
-int traceeval_n_stop(struct traceeval *teval, struct traceeval_key *keys,
+int traceeval_n_stop(struct traceeval *teval, const struct traceeval_key *keys,
 		     unsigned long long stop);
-int traceeval_n_continue(struct traceeval *teval, struct traceeval_key *keys,
+int traceeval_n_continue(struct traceeval *teval, const struct traceeval_key *keys,
 			 unsigned long long start);
 
-int traceeval_n_set_private(struct traceeval *teval, struct traceeval_key *keys,
+int traceeval_n_set_private(struct traceeval *teval, const struct traceeval_key *keys,
 			    void *data);
 
-void *traceeval_n_get_private(struct traceeval *teval, struct traceeval_key *keys);
+void *traceeval_n_get_private(struct traceeval *teval, const struct traceeval_key *keys);
 
 struct traceeval_result_array *traceeval_results(struct traceeval *teval);
 
 size_t traceeval_result_nr(struct traceeval *teval);
 
 size_t traceeval_key_array_nr(struct traceeval_key_array *karray);
-const struct traceeval_key *traceeval_key_array_indx(struct traceeval_key_array *karray,
+const struct traceeval_key *traceeval_key_array_indx(const struct traceeval_key_array *karray,
 						     size_t index);
 struct traceeval_key_array *traceeval_result_indx_key_array(struct traceeval *teval,
 							    size_t index);
@@ -86,10 +86,10 @@ ssize_t traceeval_result_indx_total(struct traceeval *teval, size_t index);
 ssize_t traceeval_result_indx_max(struct traceeval *teval, size_t index);
 ssize_t traceeval_result_indx_min(struct traceeval *teval, size_t index);
 
-ssize_t traceeval_result_keys_cnt(struct traceeval *teval, struct traceeval_key *keys);
-ssize_t traceeval_result_keys_total(struct traceeval *teval, struct traceeval_key *keys);
-ssize_t traceeval_result_keys_max(struct traceeval *teval, struct traceeval_key *keys);
-ssize_t traceeval_result_keys_min(struct traceeval *teval, struct traceeval_key *keys);
+ssize_t traceeval_result_keys_cnt(struct traceeval *teval, const struct traceeval_key *keys);
+ssize_t traceeval_result_keys_total(struct traceeval *teval, const struct traceeval_key *keys);
+ssize_t traceeval_result_keys_max(struct traceeval *teval, const struct traceeval_key *keys);
+ssize_t traceeval_result_keys_min(struct traceeval *teval, const struct traceeval_key *keys);
 
 struct traceeval *traceeval_1_alloc(const char *name, struct traceeval_key_info info[1]);
 int traceeval_1_start(struct traceeval *teval, struct traceeval_key key,
