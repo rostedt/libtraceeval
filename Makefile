@@ -348,10 +348,9 @@ $(LIBRARY_STATIC): force
 $(LIBRARY_SHARED): force
 	$(Q)$(call descend,$(src)/src,$(LIBRARY_SO))
 
+#	$(Q)$(call descend_clean,utest)
 clean:
-	$(Q)$(call descend_clean,utest)
 	$(Q)$(call descend_clean,src)
-	$(Q)$(call descend_clean,samples)
 	$(Q)$(call do_clean, \
 	  $(TARGETS) $(bdir)/*.a $(bdir)/*.so $(bdir)/*.so.* $(bdir)/*.o $(bdir)/.*.d \
 	  $(PKG_CONFIG_FILE) \
