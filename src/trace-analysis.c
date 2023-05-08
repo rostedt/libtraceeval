@@ -72,7 +72,7 @@ void traceeval_key_info_array_free(struct traceeval_key_info_array *tarray)
 }
 
 int traceeval_key_info_array_add(struct traceeval_key_info_array *tarray,
-				 struct traceeval_key_info *key)
+				 const struct traceeval_key_info *key)
 {
 	size_t nr = tarray->nr_keys;
 	struct traceeval_key_info *kinfo;
@@ -137,7 +137,7 @@ static int cmp_keys(struct traceeval_key_info_array *tarray,
 		    const struct traceeval_key *A, const struct traceeval_key *B,
 		    int *err)
 {
-	struct traceeval_key_info *kinfo;
+	const struct traceeval_key_info *kinfo;
 	unsigned long long A_val, B_val;
 	int ret;
 	int i;
@@ -582,11 +582,12 @@ traceeval_result_keys_min(struct traceeval *teval, const struct traceeval_key *k
 }
 
 struct traceeval *
-traceeval_1_alloc(const char *name, struct traceeval_key_info kinfo[1])
+traceeval_1_alloc(const char *name, const struct traceeval_key_info kinfo[1])
 {
+	struct traceeval_key_info key[1] = { kinfo[0] };
 	struct traceeval_key_info_array karray = {
 		.nr_keys = 1,
-		.keys = kinfo,
+		.keys = key,
 	};
 
 	return traceeval_n_alloc(name, &karray);
@@ -632,11 +633,12 @@ int traceeval_1_stop(struct traceeval *teval, struct traceeval_key key,
 }
 
 struct traceeval *
-traceeval_2_alloc(const char *name, struct traceeval_key_info kinfo[2])
+traceeval_2_alloc(const char *name, const struct traceeval_key_info kinfo[2])
 {
+	struct traceeval_key_info key[2] = { kinfo[0], kinfo[1] };
 	struct traceeval_key_info_array karray = {
 		.nr_keys = 2,
-		.keys = kinfo,
+		.keys = key,
 	};
 
 	return traceeval_n_alloc(name, &karray);
