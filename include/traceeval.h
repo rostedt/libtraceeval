@@ -110,4 +110,11 @@ int traceeval_sort_min(struct traceeval *teval, bool ascending);
 int traceeval_sort_cnt(struct traceeval *teval, bool ascending);
 int traceeval_sort_keys(struct traceeval *teval, bool ascending);
 
+typedef int (*traceeval_cmp_func)(struct traceeval *teval,
+				  const struct traceeval_key_array *A,
+				  const struct traceeval_key_array *B,
+				  void *data);
+
+int traceeval_sort_custom(struct traceeval *teval, traceeval_cmp_func cmp, void *data);
+
 #endif /* __LIBTRACEEVAL_H__ */

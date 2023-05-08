@@ -11,6 +11,7 @@
 #define HASH_MASK (HASH_SIZE - 1)
 
 enum sort_type {
+	NONE,
 	KEYS,
 	TOTALS,
 	MAX,
@@ -729,6 +730,7 @@ static int eval_sort(struct traceeval *teval, enum sort_type sort_type, bool asc
 	case CNT:
 		cmp_func = cmp_cnt;
 		break;
+	case NONE:
 	case KEYS:
 		if (ascending) {
 			qsort_r(teval->results, teval->nr_evals,
@@ -767,6 +769,38 @@ int traceeval_sort_min(struct traceeval *teval, bool ascending)
 int traceeval_sort_cnt(struct traceeval *teval, bool ascending)
 {
 	return eval_sort(teval, CNT, ascending);
+}
+
+struct cmp_data {
+	struct traceeval	*teval;
+	traceeval_cmp_func	func;
+	void			*data;
+};
+
+static int cmp_custom(const void *A, const void *B, void *data)
+{
+	const struct traceeval_key_array *a = A;
+	const struct traceeval_key_array *b = B;
+	struct cmp_data *cdata = data;
+
+	return cdata->func(cdata->teval, a, b, cdata->data);
+}
+
+int traceeval_sort_custom(struct traceeval *teval, traceeval_cmp_func cmp, void *data)
+{
+	struct cmp_data cdata;
+
+	if (create_results(teval) < 0)
+		return -1;
+
+	cdata.teval = teval;
+	cdata.func = cmp;
+	cdata.data = data;
+
+	qsort_r(teval->results, teval->nr_evals,
+		sizeof(*teval->results), cmp_custom, &cdata);
+
+	return 0;
 }
 
 int traceeval_sort_keys(struct traceeval *teval, bool ascending)
