@@ -6,6 +6,10 @@
 #include <errno.h>
 #include <traceeval.h>
 
+#define HASH_BITS 10
+#define HASH_SIZE (1 << HASH_BITS)
+#define HASH_MASK (HASH_SIZE - 1)
+
 enum sort_type {
 	KEYS,
 	TOTALS,
@@ -30,9 +34,15 @@ struct eval_instance {
 	void			*private;
 };
 
+struct eval_hash {
+	struct eval_hash		*next;
+	struct eval_instance		eval;
+};
+
 struct traceeval {
 	struct traceeval_key_info_array		array;
 	struct eval_instance			*evals;
+	struct eval_hash			*eval_hash[HASH_SIZE];
 	size_t					nr_evals;
 	struct eval_instance			*results;
 	enum sort_type				sort_type;
@@ -104,8 +114,18 @@ traceeval_n_alloc(const char *name, const struct traceeval_key_info_array *keys)
 
 void traceeval_free(struct traceeval *teval)
 {
+	struct eval_hash *ehash;
+	int i;
 	if (!teval)
 		return;
+
+	for (i = 0; i < HASH_SIZE; i++) {
+		for (ehash = teval->eval_hash[i]; ehash; ) {
+			struct eval_hash *tmp = ehash;
+			ehash = ehash->next;
+			free(tmp);
+		}
+	}
 
 	free(teval->array.keys);
 	free(teval->evals);
@@ -113,7 +133,8 @@ void traceeval_free(struct traceeval *teval)
 }
 
 static int cmp_keys(struct traceeval_key_info_array *tarray,
-		    struct traceeval_key *A, struct traceeval_key *B, int *err)
+		    const struct traceeval_key *A, const struct traceeval_key *B,
+		    int *err)
 {
 	struct traceeval_key_info *kinfo;
 	unsigned long long A_val, B_val;
@@ -175,99 +196,137 @@ static int cmp_keys(struct traceeval_key_info_array *tarray,
 	return 0;
 }
 
-static struct eval_instance *
-_find_eval_instance(struct traceeval *teval, struct traceeval_key *keys,
-		   int *B, int *E, int *N, int *err)
-{
-	struct eval_instance *eval = NULL;
-	int b, e, n;
-	int ret;
-
-	b = n = 0;
-	e = teval->nr_evals - 1;
-
-	while (b <= e) {
-		n = (b + e) / 2;
-		eval = &teval->evals[n];
-		ret = cmp_keys(&teval->array, keys, eval->keys, err);
-		if (ret > 0) {
-			b = n + 1;
-		} else if (ret < 0) {
-			if (*err) {
-				errno = EINVAL;
-				return NULL;
-			}
-			e = n - 1;
-		} else
-			break;
-	}
-
-	*B = b;
-	*E = e;
-	*N = n;
-
-	return eval;
-}
-
 static void free_results (struct traceeval *teval)
 {
 	free(teval->results);
 	teval->results = NULL;
 }
 
-static struct eval_instance *
-get_eval_instance(struct traceeval *teval, struct traceeval_key *keys)
+static int make_key(struct traceeval *teval, struct traceeval_key *keys, int *err)
 {
-	struct eval_instance *eval;
-	int b, e, n;
-	int err = 0;
+	struct traceeval_key_info *kinfo;
+	bool calc;
+	int len, l;
+	int ret = 0;
+	int i;
 
-	eval = _find_eval_instance(teval, keys, &b, &e, &n, &err);
-	if (err)
+	for (i = 0; i < teval->array.nr_keys; i++) {
+		kinfo = &teval->array.keys[i];
+
+		/* TBD arrays */
+		if (kinfo->count) {
+			*err = 1;
+			return -1;
+		}
+
+		if (keys[i].type != kinfo->type) {
+			*err = 1;
+			return -1;
+		}
+
+		calc = false;
+
+		switch (kinfo->type) {
+		case TRACEEVAL_TYPE_STRING:
+			len = strlen(keys[i].string);
+
+			for (l = 0; l < len; l++) {
+				unsigned int c = keys[i].string[l];
+
+				ret += c << ((l & 3) * 8);
+			}
+
+			continue;
+
+		case TRACEEVAL_TYPE_NUMBER_32:
+			calc = true;
+			/* fall though */
+		case TRACEEVAL_TYPE_NUMBER:
+			if (calc || sizeof(keys[i].number) == 4) {
+				ret += keys[i].number;
+				continue;
+			}
+			/* fall through */
+		case TRACEEVAL_TYPE_NUMBER_64:
+			ret += keys[i].number_64 >> 32;
+			ret += keys[i].number_64 & ((1ULL << 32) - 1);
+			break;
+			break;
+		case TRACEEVAL_TYPE_NUMBER_16:
+			ret += keys[i].number_16;
+			break;
+		case TRACEEVAL_TYPE_NUMBER_8:
+			ret += keys[i].number_8;
+			break;
+		case TRACEEVAL_TYPE_ARRAY:
+		default:
+			*err = 1;
+			return -1;
+		}
+	}
+	return ret & HASH_MASK;
+}
+
+static struct eval_hash *find_eval(struct traceeval *teval, struct traceeval_key *keys,
+				   int *err, int *pkey)
+{
+	struct eval_hash *ehash;
+	int key = make_key(teval, keys, err);
+
+	if (key < 0)
 		return NULL;
 
-	if (b > e) {
-		eval = realloc(teval->evals, sizeof(*eval) * (teval->nr_evals + 1));
-		if (!eval)
-			return NULL;
+	if (pkey)
+		*pkey = key;
 
-		teval->evals = eval;
-
-		if (n != teval->nr_evals)
-			memmove(&teval->evals[n+1], &teval->evals[n],
-				(sizeof(*eval) * (teval->nr_evals - n)));
-		eval = &teval->evals[n];
-		memset(eval, 0, sizeof(*eval));
-		eval->keys = calloc(teval->array.nr_keys, sizeof(*eval->keys));
-		if (!eval->keys)
-			return NULL;
-		for (b = 0; b < teval->array.nr_keys; b++)
-			eval->keys[b] = keys[b];
-		eval->nr_keys = teval->array.nr_keys;
-		teval->nr_evals++;
-
-		/*
-		 * Results are a copy of evals, it is no longer reliable
-		 * after a realloc, and is not sorted the same.
-		 */
-		free_results(teval);
+	for (ehash = teval->eval_hash[key]; ehash; ehash = ehash->next) {
+		if (cmp_keys(&teval->array, keys, ehash->eval.keys, err) == 0)
+			return ehash;
 	}
+	return NULL;
+}
 
-	return eval;
+static struct eval_hash *
+insert_eval(struct traceeval *teval, struct traceeval_key *keys, int key)
+{
+	struct eval_instance *eval;
+	struct eval_hash *ehash;
+	int i;
+
+	ehash = calloc(1, sizeof(*ehash));
+	if (!ehash)
+		return NULL;
+
+	eval = &ehash->eval;
+
+	eval->keys = calloc(teval->array.nr_keys, sizeof(*eval->keys));
+	if (!eval->keys)
+		return NULL;
+	for (i = 0; i < teval->array.nr_keys; i++)
+		eval->keys[i] = keys[i];
+	eval->nr_keys = teval->array.nr_keys;
+	teval->nr_evals++;
+
+	ehash->next = teval->eval_hash[key];
+	teval->eval_hash[key] = ehash;
+
+	return ehash;
 }
 
 static struct eval_instance *
-find_eval_instance(struct traceeval *teval, struct traceeval_key *keys)
+get_eval_instance(struct traceeval *teval, struct traceeval_key *keys)
 {
-	struct eval_instance *eval;
-	int b, e, n;
+	struct eval_hash *ehash;
 	int err = 0;
+	int key = -1;
 
-	eval = _find_eval_instance(teval, keys, &b, &e, &n, &err);
-	if (err)
-		return NULL;
-
-	return b > e ? NULL : eval;
+	ehash = find_eval(teval, keys, &err, &key);
+	if (!ehash) {
+		ehash = insert_eval(teval, keys, key);
+		if (!ehash)
+			return NULL;
+	}
+	return &ehash->eval;
 }
 
 int traceeval_n_start(struct traceeval *teval, struct traceeval_key *keys,
@@ -315,13 +374,13 @@ int traceeval_n_set_private(struct traceeval *teval, struct traceeval_key *keys,
 
 void *traceeval_n_get_private(struct traceeval *teval, struct traceeval_key *keys)
 {
-	struct eval_instance *eval;
+	struct eval_hash *ehash;
+	int err = 0;
 
-	eval = find_eval_instance(teval, keys);
-	if (!eval)
+	ehash = find_eval(teval, keys, &err, NULL);
+	if (!ehash)
 		return NULL;
-
-	return eval->private;
+	return ehash->eval.private;
 }
 
 int traceeval_n_stop(struct traceeval *teval, struct traceeval_key *keys,
@@ -376,13 +435,44 @@ traceeval_key_array_indx(struct traceeval_key_array *karray, size_t index)
 	return &eval->keys[index];
 }
 
+static int create_results(struct traceeval *teval)
+{
+	struct eval_hash *ehash;
+	int r = 0;
+	int i;
+
+	if (teval->results)
+		return 0;
+
+	teval->results = calloc(teval->nr_evals, sizeof(*teval->results));
+	if (!teval->results)
+		return -1;
+
+	for (i = 0; i < HASH_SIZE; i++) {
+		for (ehash = teval->eval_hash[i]; ehash; ehash = ehash->next) {
+			teval->results[r++] = ehash->eval;
+		}
+	}
+	return 0;
+}
+
+static int eval_sort(struct traceeval *teval, enum sort_type sort_type, bool ascending);
+
 static struct eval_instance *get_result(struct traceeval *teval, size_t index)
 {
 	if (index >= teval->nr_evals)
 		return NULL;
 
+	if (!teval->results) {
+		create_results(teval);
+		if (!teval->results)
+			return NULL;
+		eval_sort(teval, KEYS, true);
+	}
+
 	if (teval->results)
 		return &teval->results[index];
+
 	return &teval->evals[index];
 }
 
@@ -445,49 +535,49 @@ traceeval_result_indx_min(struct traceeval *teval, size_t index)
 ssize_t
 traceeval_result_keys_cnt(struct traceeval *teval, struct traceeval_key *keys)
 {
-	struct eval_instance *eval;
+	struct eval_hash *ehash;
+	int err = 0;
 
-	eval = find_eval_instance(teval, keys);
-	if (!eval)
+	ehash = find_eval(teval, keys, &err, NULL);
+	if (!ehash)
 		return -1;
-
-	return eval->cnt;
+	return ehash->eval.cnt;
 }
 
 ssize_t
 traceeval_result_keys_total(struct traceeval *teval, struct traceeval_key *keys)
 {
-	struct eval_instance *eval;
+	struct eval_hash *ehash;
+	int err = 0;
 
-	eval = find_eval_instance(teval, keys);
-	if (!eval)
+	ehash = find_eval(teval, keys, &err, NULL);
+	if (!ehash)
 		return -1;
-
-	return eval->total;
+	return ehash->eval.total;
 }
 
 ssize_t
 traceeval_result_keys_max(struct traceeval *teval, struct traceeval_key *keys)
 {
-	struct eval_instance *eval;
+	struct eval_hash *ehash;
+	int err = 0;
 
-	eval = find_eval_instance(teval, keys);
-	if (!eval)
+	ehash = find_eval(teval, keys, &err, NULL);
+	if (!ehash)
 		return -1;
-
-	return eval->max;
+	return ehash->eval.max;
 }
 
 ssize_t
 traceeval_result_keys_min(struct traceeval *teval, struct traceeval_key *keys)
 {
-	struct eval_instance *eval;
+	struct eval_hash *ehash;
+	int err = 0;
 
-	eval = find_eval_instance(teval, keys);
-	if (!eval)
+	ehash = find_eval(teval, keys, &err, NULL);
+	if (!ehash)
 		return -1;
-
-	return eval->min;
+	return ehash->eval.min;
 }
 
 struct traceeval *
@@ -551,22 +641,6 @@ traceeval_2_alloc(const char *name, struct traceeval_key_info kinfo[2])
 	return traceeval_n_alloc(name, &karray);
 }
 
-static int create_results(struct traceeval *teval)
-{
-	int i;
-
-	if (teval->results)
-		return 0;
-
-	teval->results = calloc(teval->nr_evals, sizeof(*teval->results));
-	if (!teval->results)
-		return -1;
-	for (i = 0; i < teval->nr_evals; i++)
-		teval->results[i] = teval->evals[i];
-
-	return 0;
-}
-
 static int cmp_totals(const void *A, const void *B)
 {
 	const struct eval_instance *a = A;
@@ -614,6 +688,24 @@ static int cmp_inverse(const void *A, const void *B, void *cmp)
 	return cmp_func(B, A);
 }
 
+static int cmp_evals(const void *A, const void *B, void *data)
+{
+	const struct eval_instance *a = A;
+	const struct eval_instance *b = B;
+	struct traceeval *teval = data;
+	int err;
+
+	return cmp_keys(&teval->array, a->keys, b->keys, &err);
+}
+
+static int cmp_evals_dec(const void *A, const void *B, void *data)
+{
+	struct traceeval *teval = data;
+	int err;
+
+	return cmp_keys(&teval->array, B, A, &err);
+}
+
 static int eval_sort(struct traceeval *teval, enum sort_type sort_type, bool ascending)
 {
 	int (*cmp_func)(const void *, const void *);
@@ -638,6 +730,13 @@ static int eval_sort(struct traceeval *teval, enum sort_type sort_type, bool asc
 		cmp_func = cmp_cnt;
 		break;
 	case KEYS:
+		if (ascending) {
+			qsort_r(teval->results, teval->nr_evals,
+				sizeof(*teval->results), cmp_evals, teval);
+		} else {
+			qsort_r(teval->results, teval->nr_evals,
+				sizeof(*teval->results), cmp_evals_dec, teval);
+		}
 		return 0;
 	}
 
@@ -672,23 +771,5 @@ int traceeval_sort_cnt(struct traceeval *teval, bool ascending)
 
 int traceeval_sort_keys(struct traceeval *teval, bool ascending)
 {
-	int i, nr;
-
-	if (ascending) {
-		/* evals are sorted by keys */
-		free_results(teval);
-		teval->sort_type = KEYS;
-		return 0;
-	}
-
-	if (create_results(teval) < 0)
-		return -1;
-
-	nr = teval->nr_evals - 1;
-
-	/* Just invert the evals */
-	for (i = 0; i <= nr; i++)
-		teval->results[i] = teval->evals[nr - i];
-
-	return 0;
+	return eval_sort(teval, KEYS, ascending);
 }
