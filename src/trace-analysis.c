@@ -197,12 +197,6 @@ static int cmp_keys(struct traceeval_key_info_array *tarray,
 	return 0;
 }
 
-static void free_results (struct traceeval *teval)
-{
-	free(teval->results);
-	teval->results = NULL;
-}
-
 static int make_key(struct traceeval *teval, const struct traceeval_key *keys, int *err)
 {
 	struct traceeval_key_info *kinfo;
