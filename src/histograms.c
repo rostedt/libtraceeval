@@ -688,3 +688,117 @@ void traceeval_results_release(struct traceeval *teval,
 
 	data_release(teval->nr_val_types, &results, teval->val_types);
 }
+
+/*
+ * Create a new entry in @teval with respect to @keys and @vals.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+static int create_entry(struct traceeval *teval,
+			const union traceeval_data *keys,
+			const union traceeval_data *vals)
+{
+	union traceeval_data *new_keys;
+	union traceeval_data *new_vals;
+	struct entry *tmp_map;
+	struct hist_table *hist = teval->hist;
+
+	/* copy keys */
+	if (copy_traceeval_data_set(teval->nr_key_types, teval->key_types,
+				keys, &new_keys) == -1)
+		return -1;
+
+	/* copy vals */
+	if (copy_traceeval_data_set(teval->nr_val_types, teval->val_types,
+				vals, &new_vals) == -1)
+		goto fail_vals;
+
+	/* create new entry */
+	tmp_map = realloc(hist->map, ++hist->nr_entries * sizeof(*tmp_map));
+	if (!tmp_map)
+		goto fail;
+	tmp_map->keys = new_keys;
+	tmp_map->vals = new_vals;
+	hist->map = tmp_map;
+
+	return 0;
+
+fail:
+	data_release(teval->nr_val_types, &new_vals, teval->val_types);
+
+fail_vals:
+	data_release(teval->nr_key_types, &new_keys, teval->key_types);
+	return -1;
+}
+
+/*
+ * Update @entry's vals field with a copy of @vals, with respect to @teval.
+ *
+ * Frees the old vals field of @entry, unless an error occurs.
+ *
+ * Return 0 on success, -1 on error.
+ */
+static int update_entry(struct traceeval *teval, struct entry *entry,
+			const union traceeval_data *vals)
+{
+	union traceeval_data *new_vals;
+
+	if (copy_traceeval_data_set(teval->nr_val_types, teval->val_types,
+				vals, &new_vals) == -1)
+		return -1;
+
+	clean_data_set(entry->vals, teval->val_types, teval->nr_val_types);
+	entry->vals = new_vals;
+	return 0;
+}
+
+/*
+ * traceeval_insert - insert an item into the traceeval descriptor
+ * @teval: The descriptor to insert into
+ * @keys: The list of keys that defines what is being inserted.
+ * @vals: The list of values that defines what is being inserted.
+ *
+ * The @keys is an array that holds the data in the order of the keys
+ * passed into traceeval_init(). That is, if traceeval_init() had
+ * keys = { { .type = TRACEEVAL_STRING }, { .type = TRACEEVAL_NUMBER_8 },
+ * { .type = TRACEEVAL_NONE } }; then the @keys array passed in must
+ * be a string (char *) followed by a 8 byte number (char).
+ *
+ * The @keys and @vals are only examined to where it expects data. That is,
+ * if the traceeval_init() keys had 3 items where the first two was defining
+ * data, and the last one was the TRACEEVAL_TYPE_NONE, then the @keys
+ * here only needs to be an array of 2, inserting the two items defined
+ * by traceeval_init(). The same goes for @vals.
+ *
+ * If an entry with keys that match @keys exists, it's vals field is freed and
+ * set to a copy of @vals. This process calls dyn_release() on any data of
+ * type TRACEEVAL_TYPE_DYNAMIC.
+ * Otherwise, a new entry is created with copies of @keys and @vals.
+ *
+ * For all elements of @keys and @vals that correspond to a struct
+ * traceeval_type of type TRACEEVAL_TYPE_STRING, the string field must be set
+ * a valid pointer or NULL.
+ *
+ * On error, @teval is left unchanged.
+ *
+ * Returns 0 on success, and -1 on error.
+ */
+int traceeval_insert(struct traceeval *teval,
+		     const union traceeval_data *keys,
+		     const union traceeval_data *vals)
+{
+	struct entry *entry;
+	int check;
+
+	entry = NULL;
+	check = get_entry(teval, keys, &entry);
+
+	if (check == -1)
+		return check;
+
+	/* insert key-value pair */
+	if (check == 0)
+		return create_entry(teval, keys, vals);
+	else
+		return update_entry(teval, entry, vals);
+}
