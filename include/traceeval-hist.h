@@ -134,4 +134,10 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 
 void traceeval_release(struct traceeval *teval);
 
+int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
+		    union traceeval_data **results);
+
+void traceeval_results_release(struct traceeval *teval,
+			       union traceeval_data *results);
+
 #endif /* __LIBTRACEEVAL_HIST_H__ */

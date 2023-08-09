@@ -527,3 +527,164 @@ void traceeval_release(struct traceeval *teval)
 	teval->val_types = NULL;
 	free(teval);
 }
+
+/*
+ * Find the entry that @keys corresponds to within @teval.
+ *
+ * Returns 1 on success, 0 if no match found, -1 on error.
+ */
+static int get_entry(struct traceeval *teval, const union traceeval_data *keys,
+		     struct entry **result)
+{
+	struct hist_table *hist;
+	struct entry *entry;
+	int check = 0;
+	int i;
+
+	if (!teval || !keys)
+		return -1;
+
+	hist = teval->hist;
+	for (i = 0, entry = hist->map; i < hist->nr_entries; entry = &hist->map[++i]) {
+		check = compare_traceeval_data_set(entry->keys, keys,
+				teval->key_types, teval->nr_key_types);
+
+		if (!check)
+			continue;
+		break;
+	}
+
+	if (check > 0)
+		*result = entry;
+	return check;
+}
+
+/*
+ * Copy @orig to @copy with respect to @type.
+ *
+ * Return 0 on success, -1 on error.
+ */
+static int copy_traceeval_data(struct traceeval_type *type,
+				const union traceeval_data *orig,
+				union traceeval_data *copy)
+{
+	*copy = *orig;
+
+	if (type->type == TRACEEVAL_TYPE_STRING) {
+		copy->string = NULL;
+
+		if (orig->string)
+			copy->string = strdup(orig->string);
+		else
+			return 0;
+
+		if (!copy->string)
+			return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Free @data with respect to @size and @type.
+ *
+ * Does not call dyn_release on type TRACEEVAL_TYPE_DYNAMIC.
+ */
+static void data_release(size_t size, union traceeval_data **data,
+				struct traceeval_type *type)
+{
+	for (size_t i = 0; i < size; i++) {
+		if (type[i].type == TRACEEVAL_TYPE_STRING)
+			free((*data)[i].string);
+	}
+	free(*data);
+	*data = NULL;
+}
+
+/*
+ * Copy @orig to @copy with respect to @size and @type.
+ *
+ * Returns 1 on success, -1 on error.
+ */
+static int copy_traceeval_data_set(size_t size, struct traceeval_type *type,
+				    const union traceeval_data *orig,
+				    union traceeval_data **copy)
+{
+	size_t i;
+
+	*copy = NULL;
+	if (!size)
+		return 1;
+
+	*copy = calloc(size, sizeof(**copy));
+	if (!*copy)
+		return -1;
+
+	for (i = 0; i < size; i++) {
+		if (copy_traceeval_data(type + i, orig + i, (*copy) + i))
+			goto fail;
+	}
+
+	return 1;
+
+fail:
+	data_release(i, copy, type);
+	return -1;
+}
+
+
+/*
+ * traceeval_query - find the last instance defined by the keys
+ * @teval: The descriptor to search from
+ * @keys: A list of data to look for
+ * @results: A pointer to where to place the results (if found)
+ *
+ * This does a lookup for an instance within the traceeval data.
+ * The @keys is an array defined by the keys declared in traceeval_init().
+ * The @keys will return an item that had the same keys when it was
+ * inserted by traceeval_insert(). The @keys here follow the same rules
+ * as the keys for traceeval_insert().
+ *
+ * Note, when the caller is done with @results, it must call
+ * traceeval_results_release() on it.
+ *
+ * Returns 1 if found, 0 if not found, and -1 on error.
+ */
+int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
+		    union traceeval_data **results)
+{
+	struct entry *entry;
+	int check;
+
+	if (!teval || !keys || !results)
+		return -1;
+
+	/* find key and copy its corresponding value pair */
+	if ((check = get_entry(teval, keys, &entry)) < 1)
+		return check;
+	return copy_traceeval_data_set(teval->nr_val_types, teval->val_types,
+			entry->vals, results);
+}
+
+/*
+ * traceeval_results_release - release the results return by traceeval_query()
+ * @teval: The descriptor used in traceeval_query()
+ * @results: The results returned by traceeval_query()
+ *
+ * The @results returned by traceeval_query() is owned by @teval, and
+ * how it manages it is implementation specific. The caller should not
+ * worry about it. When the caller of traceeval_query() is done with
+ * the @results, it must call traceeval_results_release() on it to
+ * allow traceeval to clean up its references.
+ */
+void traceeval_results_release(struct traceeval *teval,
+			       union traceeval_data *results)
+{
+	if (!teval || !results) {
+		if (!results)
+			print_err("Results to be freed without accompanied traceeval instance!");
+		return;
+	}
+
+	data_release(teval->nr_val_types, &results, teval->val_types);
+}
