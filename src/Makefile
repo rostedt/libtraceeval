@@ -4,6 +4,7 @@ include $(src)/scripts/utils.mk
 
 OBJS =
 OBJS += trace-analysis.o
+OBJS += histograms.o
 
 OBJS := $(OBJS:%.o=$(bdir)/%.o)
 
