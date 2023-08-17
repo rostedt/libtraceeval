@@ -595,12 +595,16 @@ static int copy_traceeval_data(struct traceeval_type *type,
 /*
  * Free @data with respect to @size and @type.
  *
- * Does not call the release callback on the data.
+ * Does not call the release() callback if a copy() exists.
  */
 static void data_release(size_t size, union traceeval_data **data,
 				struct traceeval_type *type)
 {
 	for (size_t i = 0; i < size; i++) {
+		/* A copy should handle releases */
+		if (type[i].release && !type[i].copy)
+			type[i].release(&type[i], &(*data)[i]);
+
 		if (type[i].type == TRACEEVAL_TYPE_STRING)
 			free((*data)[i].string);
 	}
