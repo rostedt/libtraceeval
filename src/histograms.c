@@ -12,8 +12,6 @@
 
 #include <traceeval-hist.h>
 
-#include "traceeval-test.h"
-
 /*
  * Compare two integers of variable length.
  *
@@ -61,50 +59,6 @@ static void print_err(const char *fmt, ...)
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 	fprintf(stderr, "\n");
-}
-
-/*
- * Compare traceeval_type instances for equality.
- *
- * Return 1 if @orig and @copy are the same, 0 otherwise.
- */
-static int compare_traceeval_type(struct traceeval_type *orig,
-				  struct traceeval_type *copy,
-				  size_t orig_size, size_t copy_size)
-{
-	size_t i;
-
-	/* same memory/NULL */
-	if (orig == copy)
-		return 1;
-	if (!!orig != !!copy)
-		return 0;
-
-	if (orig_size != copy_size)
-		return 0;
-
-	for (i = 0; i < orig_size; i++) {
-		if (orig[i].type != copy[i].type)
-			return 0;
-		if (orig[i].flags != copy[i].flags)
-			return 0;
-		if (orig[i].id != copy[i].id)
-			return 0;
-		if (orig[i].release != copy[i].release)
-			return 0;
-		if (orig[i].cmp != copy[i].cmp)
-			return 0;
-
-		// make sure both names are same type
-		if (!!orig[i].name != !!copy[i].name)
-			return 0;
-		if (!orig[i].name)
-			continue;
-		if (strcmp(orig[i].name, copy[i].name) != 0)
-			return 0;
-	}
-
-	return 1;
 }
 
 /*
@@ -183,87 +137,6 @@ static int compare_traceeval_data_set(struct traceeval *teval,
 	}
 
 	return 1;
-}
-
-/*
- * Return 1 if @orig and @copy are the same, 0 if not, and -1 on error.
- */
-static int compare_entries(struct entry *orig, struct entry *copy,
-			   struct traceeval *teval)
-{
-	int check;
-
-	/* compare keys */
-	check = compare_traceeval_data_set(teval, teval->key_types,
-					   orig->keys, copy->keys, teval->nr_key_types);
-	if (check < 1)
-		return check;
-
-	/* compare values */
-	check = compare_traceeval_data_set(teval, teval->val_types,
-					   orig->vals, copy->vals, teval->nr_val_types);
-	return check;
-}
-
-/*
- * Compares the hist fields of @orig and @copy for equality.
- *
- * Assumes all other aspects of @orig and @copy are the same.
- *
- * Return 1 if struct hist_table of @orig and @copy are the same, 0 if not,
- * and -1 on error.
- */
-static int compare_hist(struct traceeval *orig, struct traceeval *copy)
-{
-	struct hist_table *o_hist;
-	struct hist_table *c_hist;
-	int c;
-
-	o_hist = orig->hist;
-	c_hist = copy->hist;
-
-	if (o_hist->nr_entries != c_hist->nr_entries)
-		return 0;
-
-	for (size_t i = 0; i < o_hist->nr_entries; i++) {
-		if ((c = compare_entries(o_hist->map + i, c_hist->map + i, orig)) < 1)
-			return c;
-	}
-
-	return 1;
-}
-
-/*
- * traceeval_compare - Check equality between two traceeval instances
- * @orig: The first traceeval instance
- * @copy: The second traceeval instance
- *
- * This compares the values of the key definitions, value definitions, and
- * inserted data between @orig and @copy in order. It does not compare
- * by memory address, except for struct traceeval_type's release() and
- * cmp() fields.
- *
- * Returns 1 if @orig and @copy are the same, 0 if not, and -1 on error.
- */
- int traceeval_compare(struct traceeval *orig, struct traceeval *copy)
-{
-	int keys;
-	int vals;
-	int hists;
-
-	if (!orig || !copy)
-		return -1;
-
-	keys = compare_traceeval_type(orig->key_types, copy->key_types,
-			orig->nr_key_types, copy->nr_key_types);
-	vals = compare_traceeval_type(orig->val_types, copy->val_types,
-			orig->nr_val_types, copy->nr_val_types);
-	hists = compare_hist(orig, copy);
-
-	if (hists == -1)
-		return -1;
-
-	return keys && vals && hists;
 }
 
 /*
