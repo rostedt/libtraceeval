@@ -935,6 +935,35 @@ int traceeval_insert(struct traceeval *teval,
 }
 
 /**
+ * traceeval_remove - remove an item from the traceeval descriptor
+ * @teval: The descriptor to removed from
+ * @keys: The list of keys that defines what is being removed
+ *
+ * This is the opposite of traceeval_insert(). Instead of inserting
+ * an item into the traceeval historgram, it removes it.
+ *
+ * Returns 1 if it found and removed an item,
+ *         0 if it did not find an time matching @keys
+ *        -1 if there was an error.
+ */
+int traceeval_remove(struct traceeval *teval,
+		     const union traceeval_data *keys)
+{
+	struct hash_table *hist = teval->hist;
+	struct entry *entry;
+	int check;
+
+	entry = NULL;
+	check = get_entry(teval, keys, &entry);
+
+	if (check < 1)
+		return check;
+
+	hash_remove(hist, &entry->hash);
+	return 1;
+}
+
+/**
  * traceeval_iterator_put - release a given iterator
  * @iter: The iterartor to release
  *

@@ -160,6 +160,9 @@ int traceeval_insert(struct traceeval *teval,
 		     const union traceeval_data *keys,
 		     const union traceeval_data *vals);
 
+int traceeval_remove(struct traceeval *teval,
+		     const union traceeval_data *keys);
+
 int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
 		    const union traceeval_data **results);
 
