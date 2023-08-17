@@ -597,17 +597,23 @@ static int copy_traceeval_data(struct traceeval_type *type,
  *
  * Does not call the release() callback if a copy() exists.
  */
-static void data_release(size_t size, union traceeval_data **data,
-				struct traceeval_type *type)
+static void data_release(size_t size, union traceeval_data *data,
+			 struct traceeval_type *type)
 {
 	for (size_t i = 0; i < size; i++) {
 		/* A copy should handle releases */
 		if (type[i].release && !type[i].copy)
-			type[i].release(&type[i], &(*data)[i]);
+			type[i].release(&type[i], &data[i]);
 
 		if (type[i].type == TRACEEVAL_TYPE_STRING)
-			free((*data)[i].string);
+			free(data[i].string);
 	}
+}
+
+static void data_release_and_free(size_t size, union traceeval_data **data,
+				struct traceeval_type *type)
+{
+	data_release(size, *data, type);
 	free(*data);
 	*data = NULL;
 }
@@ -641,7 +647,7 @@ static int dup_traceeval_data_set(size_t size, struct traceeval_type *type,
 	return 1;
 
 fail:
-	data_release(i, copy, type);
+	data_release_and_free(i, copy, type);
 	return -1;
 }
 
@@ -700,7 +706,7 @@ void traceeval_results_release(struct traceeval *teval,
 		return;
 	}
 
-	data_release(teval->nr_val_types, &results, teval->val_types);
+	data_release_and_free(teval->nr_val_types, &results, teval->val_types);
 }
 
 static struct entry *create_hist_entry(struct traceeval *teval,
@@ -756,7 +762,7 @@ static int create_entry(struct traceeval *teval,
 	return 0;
 
 fail:
-	data_release(teval->nr_key_types, &new_keys, teval->key_types);
+	data_release_and_free(teval->nr_key_types, &new_keys, teval->key_types);
 
 fail_stats:
 	free(entry->val_stats);
@@ -776,15 +782,34 @@ fail_entry:
 static int update_entry(struct traceeval *teval, struct entry *entry,
 			const union traceeval_data *vals)
 {
-	union traceeval_data *new_vals;
+	struct traceeval_stat *stats = entry->val_stats;
+	struct traceeval_type *types = teval->val_types;
+	union traceeval_data *copy = entry->vals;
+	union traceeval_data old[teval->nr_val_types];
+	size_t size = teval->nr_val_types;
+	size_t i;
 
-	if (dup_traceeval_data_set(teval->nr_val_types, teval->val_types,
-				   entry->val_stats, vals, &new_vals) == -1)
-		return -1;
+	if (!size)
+		return 0;
 
-	clean_data_set(entry->vals, teval->val_types, teval->nr_val_types);
-	entry->vals = new_vals;
+	for (i = 0; i < size; i++) {
+		old[i] = copy[i];
+
+		if (copy_traceeval_data(types + i, stats + i,
+					copy + i, vals + i))
+			goto fail;
+	}
+	data_release(size, old, types);
 	return 0;
+ fail:
+	/* Free the new values that were added */
+	data_release(i, copy, types);
+	/* Put back the old values */
+	for (i--; i >= 0; i--) {
+		copy_traceeval_data(types + i, NULL,
+				    copy + i, old + i);
+	}
+	return -1;
 }
 
 struct traceeval_stat *traceeval_stat(struct traceeval *teval,
