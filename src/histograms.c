@@ -681,7 +681,7 @@ void traceeval_results_release(struct traceeval *teval,
 			       union traceeval_data *results)
 {
 	if (!teval || !results) {
-		if (!results)
+		if (!teval)
 			print_err("Results to be freed without accompanied traceeval instance!");
 		return;
 	}
