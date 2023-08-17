@@ -12,56 +12,7 @@
 #include <stdio.h>
 
 #include <traceeval-hist.h>
-
-#define offset_of(type, field) ((size_t)(&(((type *)(NULL))->field)))
-#define container_of(ptr, type, field) \
-	(type *)((void *)(ptr) - (void *)offset_of(type, field))
-
-#define HASH_BITS 10	/* Start with 1K of buckets */
-#define HASH_SIZE(bits)	(1 << (bits))
-#define HASH_MASK(bits)	(HASH_SIZE(bits) - 1)
-
-/*
- * Compare two integers of variable length.
- *
- * Return 0 if @a and @b are the same, 1 if @a is greater than @b, and -1
- * if @b is greater than @a.
- */
-#define compare_numbers_return(a, b)	\
-do {					\
-	if ((a) < (b))			\
-		return -1;		\
-	return (a) != (b);		\
-} while (0)				\
-
-
-struct hash_item {
-	struct hash_item	*next;
-	unsigned		key;
-};
-
-/* A hash of key-value entries */
-struct hash_table {
-	struct hash_item	**hash;
-	unsigned		bits;
-	size_t			nr_items;
-};
-
-/* A key-value pair */
-struct entry {
-	struct hash_item	hash;
-	union traceeval_data	*keys;
-	union traceeval_data	*vals;
-};
-
-/* Histogram */
-struct traceeval {
-	struct traceeval_type		*key_types;
-	struct traceeval_type		*val_types;
-	struct hash_table		*hist;
-	size_t				nr_key_types;
-	size_t				nr_val_types;
-};
+#include "eval-local.h"
 
 /*
  * print_err - print an error message
@@ -311,16 +262,11 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 	}
 
 	/* alloc hist */
-	teval->hist = calloc(1, sizeof(*teval->hist));
+	teval->hist = hash_alloc();
 	if (!teval->hist) {
 		err_msg = "Failed to allocate memory for histogram";
 		goto fail_release;
 	}
-	teval->hist->bits = HASH_BITS;
-	teval->hist->hash = calloc(HASH_SIZE(teval->hist->bits),
-				   sizeof(*teval->hist->hash));
-	if (!teval->hist->hash)
-		goto fail_release;
 
 	return teval;
 
@@ -384,36 +330,26 @@ static void free_entry(struct traceeval *teval, struct entry *entry)
 	free(entry);
 }
 
-static void free_entries(struct traceeval *teval, struct hash_item *item)
-{
-	struct entry *entry;
-
-	while (item) {
-		entry = container_of(item, struct entry, hash);
-		item = item->next;
-		free_entry(teval, entry);
-	}
-}
-
 /*
  * Free the hist_table allocated to a traceeval instance.
  */
 static void hist_table_release(struct traceeval *teval)
 {
 	struct hash_table *hist = teval->hist;
+	struct hash_iter *iter;
+	struct hash_item *item;
 
 	if (!hist)
 		return;
 
-	for (size_t i = 0; i < HASH_SIZE(hist->bits); i++) {
-		if (!hist->hash[i])
-			continue;
+	for (iter = hash_iter_start(hist); (item = hash_iter_next(iter)); ) {
+		struct entry *entry = container_of(item, struct entry, hash);
 
-		free_entries(teval, hist->hash[i]);
+		hash_remove(hist, &entry->hash);
+		free_entry(teval, entry);
 	}
 
-	free(hist->hash);
-	free(hist);
+	hash_free(hist);
 	teval->hist = NULL;
 }
 
@@ -439,18 +375,6 @@ void traceeval_release(struct traceeval *teval)
 	teval->key_types = NULL;
 	teval->val_types = NULL;
 	free(teval);
-}
-
-static unsigned long long hash_string(const char *str)
-{
-	unsigned long long key = 0;
-	int len = strlen(str);
-	int i;
-
-	for (i = 0; i < len; i++)
-		key += (unsigned long long)str[i] << ((i & 7) * 8);
-
-	return key;
 }
 
 static unsigned make_hash(struct traceeval *teval, const union traceeval_data *keys,
@@ -481,16 +405,10 @@ static unsigned make_hash(struct traceeval *teval, const union traceeval_data *k
 		default:
 			val = 0;
 		}
- /*
- * This is a quick hashing function adapted from Donald E. Knuth's 32
- * bit multiplicative hash. See The Art of Computer Programming (TAOCP).
- * Multiplication by the Prime number, closest to the golden ratio of
- * 2^32.
- */
-		key += val * 2654435761;
+		key += hash_number(val);
 	}
 
-	return key & HASH_MASK(bits);
+	return key;
 }
 
 /*
@@ -502,7 +420,9 @@ static int get_entry(struct traceeval *teval, const union traceeval_data *keys,
 		     struct entry **result)
 {
 	struct hash_table *hist = teval->hist;
-	struct entry *entry;
+	struct entry *entry = NULL;
+	struct hash_iter *iter;
+	struct hash_item *item;
 	unsigned key;
 	int check = 0;
 
@@ -511,10 +431,9 @@ static int get_entry(struct traceeval *teval, const union traceeval_data *keys,
 
 	key = make_hash(teval, keys, hist->bits);
 
-	hist = teval->hist;
-
-	for (struct hash_item *item = hist->hash[key]; item; item = item->next) {
+	for (iter = hash_iter_bucket(hist, key); (item = hash_iter_bucket_next(iter)); ) {
 		entry = container_of(item, struct entry, hash);
+
 		check = compare_traceeval_data_set(teval, teval->key_types,
 						   entry->keys, keys, teval->nr_key_types);
 		if (check)
@@ -661,7 +580,6 @@ static struct entry *create_hist_entry(struct traceeval *teval,
 				       const union traceeval_data *keys)
 {
 	struct hash_table *hist = teval->hist;
-	struct hash_item *item;
 	unsigned key = make_hash(teval, keys, hist->bits);
 	struct entry *entry;
 
@@ -669,12 +587,7 @@ static struct entry *create_hist_entry(struct traceeval *teval,
 	if (!entry)
 		return NULL;
 
-	item = &entry->hash;
-	item->next = hist->hash[key];
-	hist->hash[key] = item;
-	item->key = key;
-
-	hist->nr_items++;
+	hash_add(hist, &entry->hash, key);
 
 	return entry;
 }
