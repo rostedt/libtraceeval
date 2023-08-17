@@ -560,25 +560,25 @@ static int get_entry(struct traceeval *teval, const union traceeval_data *keys,
 }
 
 /*
- * Copy @orig to @copy with respect to @type.
+ * Copy @src to @dst with respect to @type.
  *
  * Return 0 on success, -1 on error.
  */
 static int copy_traceeval_data(struct traceeval_type *type,
-				const union traceeval_data *orig,
-				union traceeval_data *copy)
+				union traceeval_data *dst,
+				const union traceeval_data *src)
 {
-	*copy = *orig;
+	*dst = *src;
 
 	if (type->type == TRACEEVAL_TYPE_STRING) {
-		copy->string = NULL;
+		dst->string = NULL;
 
-		if (orig->string)
-			copy->string = strdup(orig->string);
+		if (src->string)
+			dst->string = strdup(src->string);
 		else
 			return 0;
 
-		if (!copy->string)
+		if (!dst->string)
 			return -1;
 	}
 
@@ -621,7 +621,7 @@ static int copy_traceeval_data_set(size_t size, struct traceeval_type *type,
 		return -1;
 
 	for (i = 0; i < size; i++) {
-		if (copy_traceeval_data(type + i, orig + i, (*copy) + i))
+		if (copy_traceeval_data(type + i, (*copy) + i, orig + i))
 			goto fail;
 	}
 
