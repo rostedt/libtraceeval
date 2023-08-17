@@ -602,13 +602,13 @@ static void data_release(size_t size, union traceeval_data **data,
 }
 
 /*
- * Copy @orig to @copy with respect to @size and @type.
+ * Duplicate a traceeval_data @orig into an newly allocated @copy.
  *
  * Returns 1 on success, -1 on error.
  */
-static int copy_traceeval_data_set(size_t size, struct traceeval_type *type,
-				    const union traceeval_data *orig,
-				    union traceeval_data **copy)
+static int dup_traceeval_data_set(size_t size, struct traceeval_type *type,
+				  const union traceeval_data *orig,
+				  union traceeval_data **copy)
 {
 	size_t i;
 
@@ -662,8 +662,8 @@ int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
 	/* find key and copy its corresponding value pair */
 	if ((check = get_entry(teval, keys, &entry)) < 1)
 		return check;
-	return copy_traceeval_data_set(teval->nr_val_types, teval->val_types,
-			entry->vals, results);
+	return dup_traceeval_data_set(teval->nr_val_types, teval->val_types,
+				      entry->vals, results);
 }
 
 /*
@@ -704,13 +704,13 @@ static int create_entry(struct traceeval *teval,
 	struct hist_table *hist = teval->hist;
 
 	/* copy keys */
-	if (copy_traceeval_data_set(teval->nr_key_types, teval->key_types,
-				keys, &new_keys) == -1)
+	if (dup_traceeval_data_set(teval->nr_key_types, teval->key_types,
+				   keys, &new_keys) == -1)
 		return -1;
 
 	/* copy vals */
-	if (copy_traceeval_data_set(teval->nr_val_types, teval->val_types,
-				vals, &new_vals) == -1)
+	if (dup_traceeval_data_set(teval->nr_val_types, teval->val_types,
+				   vals, &new_vals) == -1)
 		goto fail_vals;
 
 	/* create new entry */
@@ -743,8 +743,8 @@ static int update_entry(struct traceeval *teval, struct entry *entry,
 {
 	union traceeval_data *new_vals;
 
-	if (copy_traceeval_data_set(teval->nr_val_types, teval->val_types,
-				vals, &new_vals) == -1)
+	if (dup_traceeval_data_set(teval->nr_val_types, teval->val_types,
+				   vals, &new_vals) == -1)
 		return -1;
 
 	clean_data_set(entry->vals, teval->val_types, teval->nr_val_types);
