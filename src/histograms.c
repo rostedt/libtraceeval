@@ -511,6 +511,9 @@ static int copy_traceeval_data(struct traceeval_type *type,
 {
 	unsigned long long val;
 
+	if (type->copy)
+		return type->copy(type, dst, src);
+
 	*dst = *src;
 
 	switch(type->type) {

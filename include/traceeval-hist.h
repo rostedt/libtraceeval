@@ -82,6 +82,10 @@ typedef int (*traceeval_data_hash_fn)(struct traceeval *teval,
 				      const struct traceeval_type *type,
 				      const union traceeval_data *data);
 
+typedef int (*traceeval_data_copy_fn)(const struct traceeval_type *type,
+				      union traceeval_data *dst,
+				      const union traceeval_data *src);
+
 /*
  * struct traceeval_type - Describes the type of a traceevent_data instance
  * @type: The enum type that describes the traceeval_data
@@ -126,6 +130,7 @@ struct traceeval_type {
 	size_t				id;
 	traceeval_data_release_fn	release;
 	traceeval_data_cmp_fn		cmp;
+	traceeval_data_copy_fn		copy;
 	traceeval_data_hash_fn		hash;
 };
 
