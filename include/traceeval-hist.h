@@ -25,6 +25,7 @@ enum traceeval_data_type {
 	TRACEEVAL_TYPE_NUMBER_32,
 	TRACEEVAL_TYPE_NUMBER_64,
 	TRACEEVAL_TYPE_NUMBER,
+	TRACEEVAL_TYPE_POINTER,
 	TRACEEVAL_TYPE_STRING,
 	TRACEEVAL_TYPE_DYNAMIC
 };
@@ -52,6 +53,8 @@ struct traceeval_dynamic {
 union traceeval_data {
 	struct traceeval_dynamic	dyn_data;
 	char				*string;
+	const char			*cstring;
+	void				*pointer;
 	unsigned long			number;
 	unsigned long long		number_64;
 	unsigned int			number_32;
