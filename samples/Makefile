@@ -19,7 +19,7 @@ $(sdir):
 
 $(TARGETS): $(sdir) $(LIBTRACEEVAL_STATIC)
 
-$(sdir)/%: $(bdir)/%.o
+$(sdir)/%: $(LIBTRACEEVAL_STATIC) $(bdir)/%.o
 	$(call do_sample_build,$@,$<)
 
 $(bdir)/%.o: $(bdir)/%.c
