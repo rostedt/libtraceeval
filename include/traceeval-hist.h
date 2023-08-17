@@ -63,16 +63,17 @@ union traceeval_data {
 };
 
 struct traceeval_type;
+struct traceeval;
 
 /* release function callback on traceeval_data */
-typedef void (*traceeval_data_release_fn)(struct traceeval_type *,
-					  union traceeval_data *);
+typedef void (*traceeval_data_release_fn)(const struct traceeval_type *type,
+					  union traceeval_data *data);
 
 /* compare function callback to compare traceeval_data */
-typedef int (*traceeval_data_cmp_fn)(const union traceeval_data *,
-				     const union traceeval_data *,
-				     struct traceeval_type *);
-
+typedef int (*traceeval_data_cmp_fn)(struct traceeval *teval,
+				     const struct traceeval_type *type,
+				     const union traceeval_data *A,
+				     const union traceeval_data *B);
 /*
  * struct traceeval_type - Describes the type of a traceevent_data instance
  * @type: The enum type that describes the traceeval_data

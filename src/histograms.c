@@ -113,9 +113,10 @@ static int compare_traceeval_type(struct traceeval_type *orig,
  * Return 0 if @orig and @copy are the same, 1 if @orig is greater than @copy,
  * -1 for the other way around, and -2 on error.
  */
-static int compare_traceeval_data(union traceeval_data *orig,
-				  const union traceeval_data *copy,
-				  struct traceeval_type *type)
+static int compare_traceeval_data(struct traceeval *teval,
+				  struct traceeval_type *type,
+				  union traceeval_data *orig,
+				  const union traceeval_data *copy)
 {
 	int i;
 
@@ -129,7 +130,7 @@ static int compare_traceeval_data(union traceeval_data *orig,
 		return 1;
 
 	if (type->cmp)
-		return type->cmp(orig, copy, type);
+		return type->cmp(teval, type, orig, copy);
 
 	switch (type->type) {
 	case TRACEEVAL_TYPE_STRING:
@@ -167,16 +168,17 @@ static int compare_traceeval_data(union traceeval_data *orig,
  *
  * Return 1 if @orig and @copy are the same, 0 if not, and -1 on error.
  */
-static int compare_traceeval_data_set(union traceeval_data *orig,
-				      const union traceeval_data *copy,
-				      struct traceeval_type *defs, size_t size)
+static int compare_traceeval_data_set(struct traceeval *teval,
+				      struct traceeval_type *defs,
+				      union traceeval_data *orig,
+				      const union traceeval_data *copy, size_t size)
 {
 	int check;
 	size_t i;
 
 	/* compare data arrays */
 	for (i = 0; i < size; i++) {
-		if ((check = compare_traceeval_data(orig + i, copy + i, defs + i)))
+		if ((check = compare_traceeval_data(teval, defs + i, orig + i, copy + i)))
 			return check == -2 ? -1 : 0;
 	}
 
@@ -192,14 +194,14 @@ static int compare_entries(struct entry *orig, struct entry *copy,
 	int check;
 
 	/* compare keys */
-	check = compare_traceeval_data_set(orig->keys, copy->keys,
-			teval->key_types, teval->nr_key_types);
+	check = compare_traceeval_data_set(teval, teval->key_types,
+					   orig->keys, copy->keys, teval->nr_key_types);
 	if (check < 1)
 		return check;
 
 	/* compare values */
-	check = compare_traceeval_data_set(orig->vals, copy->vals,
-			teval->val_types, teval->nr_val_types);
+	check = compare_traceeval_data_set(teval, teval->val_types,
+					   orig->vals, copy->vals, teval->nr_val_types);
 	return check;
 }
 
@@ -546,9 +548,8 @@ static int get_entry(struct traceeval *teval, const union traceeval_data *keys,
 
 	hist = teval->hist;
 	for (i = 0, entry = hist->map; i < hist->nr_entries; entry = &hist->map[++i]) {
-		check = compare_traceeval_data_set(entry->keys, keys,
-				teval->key_types, teval->nr_key_types);
-
+		check = compare_traceeval_data_set(teval, teval->key_types,
+						   entry->keys, keys, teval->nr_key_types);
 		if (!check)
 			continue;
 		break;
