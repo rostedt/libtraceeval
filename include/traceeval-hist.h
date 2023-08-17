@@ -64,14 +64,14 @@ union traceeval_data {
 
 struct traceeval_type;
 
-/* struct traceeval_dynamic release function signature */
-typedef void (*traceeval_dyn_release_fn)(struct traceeval_type *,
-					 struct traceeval_dynamic);
+/* release function callback on traceeval_data */
+typedef void (*traceeval_data_release_fn)(struct traceeval_type *,
+					  union traceeval_data *);
 
-/* struct traceeval_dynamic compare function signature */
-typedef int (*traceeval_dyn_cmp_fn)(struct traceeval_dynamic,
-				    struct traceeval_dynamic,
-				    struct traceeval_type *);
+/* compare function callback to compare traceeval_data */
+typedef int (*traceeval_data_cmp_fn)(const union traceeval_data *,
+				     const union traceeval_data *,
+				     struct traceeval_type *);
 
 /*
  * struct traceeval_type - Describes the type of a traceevent_data instance
@@ -79,8 +79,8 @@ typedef int (*traceeval_dyn_cmp_fn)(struct traceeval_dynamic,
  * @name: The string name of the traceeval_data
  * @flags: flags to describe the traceeval_data
  * @id: User specified identifier
- * @dyn_release: For dynamic types called on release (ignored for other types)
- * @dyn_cmp: A way to compare dynamic types (ignored for other types)
+ * @release: An optional callback for when the data is being released
+ * @cmp: An optional callback to specify a way to compare the type
  *
  * The traceeval_type structure defines expectations for a corresponding
  * traceeval_data instance for a traceeval histogram instance. Used to
@@ -91,29 +91,31 @@ typedef int (*traceeval_dyn_cmp_fn)(struct traceeval_dynamic,
  * which each relate to distinct user defined struct traceeval_dynamic
  * 'sub-types'.
  *
- * For flexibility, @dyn_cmp() and @dyn_release() take a struct
- * traceeval_type instance. This allows the user to distinguish between
- * different sub-types of struct traceeval_dynamic within a single
- * callback function by examining the @id field. This is not a required
- * approach, merely one that is accommodated.
+ * For flexibility, @cmp() and @release() take a struct traceeval_type
+ * instance. This allows the user to handle dyn_data and pointer types.
+ * It may also be used for other types if the default cmp() or release()
+ * need to be overridden. Note for string types, even if the release()
+ * is called, the string freeing is still taken care of by the traceeval
+ * infrastructure.
  *
- * @dyn_cmp() is used to compare two struct traceeval_dynamic instances when a
- * corresponding struct traceeval_type is reached with its type field set to
- * TRACEEVAL_TYPE_DYNAMIC. It should return 0 on equality, 1 if the first
- * argument is greater than the second, -1 for the other way around, and -2 on
- * error.
+ * The @id field is a user specified field that may allow the same callback
+ * to be used by multiple types and not needing to do a strcmp() against the
+ * name (could be used for switch statements).
  *
- * dyn_release() is used during traceeval_release() to release a union
- * traceeval_data's struct traceeval_dynamic field when the corresponding
- * traceeval_type type is set to TRACEEVAL_TYPE_DYNAMIC.
+ * @cmp() is used to override the default compare of a type. This is
+ * required to compare dyn_data and pointer types. It should return 0
+ * on equality, 1 if the first argument is greater than the second,
+ * -1 for the other way around, and -2 on error.
+ *
+ * @release() is called when a data element is being released (or freed).
  */
 struct traceeval_type {
 	char				*name;
 	enum traceeval_data_type	type;
 	size_t				flags;
 	size_t				id;
-	traceeval_dyn_release_fn	dyn_release;
-	traceeval_dyn_cmp_fn		dyn_cmp;
+	traceeval_data_release_fn	release;
+	traceeval_data_cmp_fn		cmp;
 };
 
 /* Statistics about a given entry element */

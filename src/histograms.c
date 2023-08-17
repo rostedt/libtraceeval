@@ -90,9 +90,9 @@ static int compare_traceeval_type(struct traceeval_type *orig,
 			return 0;
 		if (orig[i].id != copy[i].id)
 			return 0;
-		if (orig[i].dyn_release != copy[i].dyn_release)
+		if (orig[i].release != copy[i].release)
 			return 0;
-		if (orig[i].dyn_cmp != copy[i].dyn_cmp)
+		if (orig[i].cmp != copy[i].cmp)
 			return 0;
 
 		// make sure both names are same type
@@ -128,6 +128,9 @@ static int compare_traceeval_data(union traceeval_data *orig,
 	if (!copy)
 		return 1;
 
+	if (type->cmp)
+		return type->cmp(orig, copy, type);
+
 	switch (type->type) {
 	case TRACEEVAL_TYPE_STRING:
 		i = strcmp(orig->string, copy->string);
@@ -149,8 +152,7 @@ static int compare_traceeval_data(union traceeval_data *orig,
 		compare_numbers_return(orig->number_8, copy->number_8);
 
 	case TRACEEVAL_TYPE_DYNAMIC:
-		if (type->dyn_cmp)
-			return type->dyn_cmp(orig->dyn_data, copy->dyn_data, type);
+		/* If it didn't specify a cmp function, then punt */
 		return 0;
 
 	default:
@@ -236,8 +238,8 @@ static int compare_hist(struct traceeval *orig, struct traceeval *copy)
  *
  * This compares the values of the key definitions, value definitions, and
  * inserted data between @orig and @copy in order. It does not compare
- * by memory address, except for struct traceeval_type's dyn_release() and
- * dyn_cmp() fields.
+ * by memory address, except for struct traceeval_type's release() and
+ * cmp() fields.
  *
  * Returns 1 if @orig and @copy are the same, 0 if not, and -1 on error.
  */
@@ -438,13 +440,12 @@ fail:
  */
 static void clean_data(union traceeval_data *data, struct traceeval_type *type)
 {
+		if (type->release)
+			type->release(type, data);
+
 		switch (type->type) {
 		case TRACEEVAL_TYPE_STRING:
 			free(data->string);
-			break;
-		case TRACEEVAL_TYPE_DYNAMIC:
-			if (type->dyn_release)
-				type->dyn_release(type, data->dyn_data);
 			break;
 		default:
 			break;
@@ -465,9 +466,8 @@ static void clean_data_set(union traceeval_data *data, struct traceeval_type *de
 		return;
 	}
 
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < size; i++)
 		clean_data(data + i, defs + i);
-	}
 
 	free(data);
 }
@@ -512,7 +512,7 @@ static void hist_table_release(struct traceeval *teval)
  * it must call traceeval_release().
  *
  * This frees all internally allocated data of @teval and will call the
- * corresponding dyn_release() functions registered for keys and values of
+ * corresponding release() functions registered for keys and values of
  * type TRACEEVAL_TYPE_DYNAMIC.
  */
 void traceeval_release(struct traceeval *teval)
@@ -588,7 +588,7 @@ static int copy_traceeval_data(struct traceeval_type *type,
 /*
  * Free @data with respect to @size and @type.
  *
- * Does not call dyn_release on type TRACEEVAL_TYPE_DYNAMIC.
+ * Does not call the release callback on the data.
  */
 static void data_release(size_t size, union traceeval_data **data,
 				struct traceeval_type *type)
