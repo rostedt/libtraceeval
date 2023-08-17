@@ -670,7 +670,7 @@ fail:
  * Returns 1 if found, 0 if not found, and -1 on error.
  */
 int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
-		    union traceeval_data **results)
+		    const union traceeval_data **results)
 {
 	struct entry *entry;
 	int check;
@@ -682,8 +682,8 @@ int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
 	if ((check = get_entry(teval, keys, &entry)) < 1)
 		return check;
 
-	return dup_traceeval_data_set(teval->nr_val_types, teval->val_types,
-				      NULL, entry->vals, results);
+	*results = entry->vals;
+	return 1;
 }
 
 /*
@@ -698,15 +698,13 @@ int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
  * allow traceeval to clean up its references.
  */
 void traceeval_results_release(struct traceeval *teval,
-			       union traceeval_data *results)
+			       const union traceeval_data *results)
 {
 	if (!teval || !results) {
 		if (!teval)
 			print_err("Results to be freed without accompanied traceeval instance!");
 		return;
 	}
-
-	data_release_and_free(teval->nr_val_types, &results, teval->val_types);
 }
 
 static struct entry *create_hist_entry(struct traceeval *teval,

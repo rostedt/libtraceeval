@@ -161,10 +161,10 @@ int traceeval_insert(struct traceeval *teval,
 		     const union traceeval_data *vals);
 
 int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
-		    union traceeval_data **results);
+		    const union traceeval_data **results);
 
 void traceeval_results_release(struct traceeval *teval,
-			       union traceeval_data *results);
+			       const union traceeval_data *results);
 
 struct traceeval_stat *traceeval_stat(struct traceeval *teval,
 				      const union traceeval_data *keys,
