@@ -130,13 +130,7 @@ struct traceeval_type {
 };
 
 /* Statistics about a given entry element */
-struct traceeval_stat {
-	unsigned long long	max;
-	unsigned long long	min;
-	unsigned long long	total;
-	unsigned long long	avg;
-	unsigned long long	std;
-};
+struct traceeval_stat;
 
 /* Iterator over aggregated data */
 struct traceeval_iterator;
@@ -159,5 +153,14 @@ int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
 
 void traceeval_results_release(struct traceeval *teval,
 			       union traceeval_data *results);
+
+struct traceeval_stat *traceeval_stat(struct traceeval *teval,
+				      const union traceeval_data *keys,
+				      struct traceeval_type *type);
+
+unsigned long long traceeval_stat_max(struct traceeval_stat *stat);
+unsigned long long traceeval_stat_min(struct traceeval_stat *stat);
+unsigned long long traceeval_stat_total(struct traceeval_stat *stat);
+unsigned long long traceeval_stat_count(struct traceeval_stat *stat);
 
 #endif /* __LIBTRACEEVAL_HIST_H__ */

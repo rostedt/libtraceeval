@@ -45,11 +45,20 @@ struct hash_table {
 	struct hash_iter	iter;
 };
 
+struct traceeval_stat {
+	unsigned long long	max;
+	unsigned long long	min;
+	unsigned long long	total;
+	unsigned long long	std;
+	size_t			count;
+};
+
 /* A key-value pair */
 struct entry {
 	struct hash_item	hash;
 	union traceeval_data	*keys;
 	union traceeval_data	*vals;
+	struct traceeval_stat	*val_stats;
 };
 
 /* Histogram */

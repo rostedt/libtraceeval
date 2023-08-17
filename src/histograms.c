@@ -505,21 +505,85 @@ static int get_entry(struct traceeval *teval, const union traceeval_data *keys,
  * Return 0 on success, -1 on error.
  */
 static int copy_traceeval_data(struct traceeval_type *type,
-				union traceeval_data *dst,
-				const union traceeval_data *src)
+			       struct traceeval_stat *stat,
+			       union traceeval_data *dst,
+			       const union traceeval_data *src)
 {
+	unsigned long long val;
+
 	*dst = *src;
 
-	if (type->type == TRACEEVAL_TYPE_STRING) {
+	switch(type->type) {
+	case TRACEEVAL_TYPE_NUMBER:
+		if (type->flags & TRACEEVAL_FL_SIGNED)
+			val = (long long)dst->number;
+		else
+			val = (unsigned long long)dst->number;
+		break;
+
+	case TRACEEVAL_TYPE_NUMBER_64:
+		if (type->flags & TRACEEVAL_FL_SIGNED)
+			val = (long long)dst->number_64;
+		else
+			val = (unsigned long long)dst->number_64;
+		break;
+
+	case TRACEEVAL_TYPE_NUMBER_32:
+		if (type->flags & TRACEEVAL_FL_SIGNED)
+			val = (long long)dst->number_32;
+		else
+			val = (unsigned long long)dst->number_32;
+		break;
+
+	case TRACEEVAL_TYPE_NUMBER_16:
+		if (type->flags & TRACEEVAL_FL_SIGNED)
+			val = (long long)dst->number_16;
+		else
+			val = (unsigned long long)dst->number_16;
+		break;
+
+	case TRACEEVAL_TYPE_NUMBER_8:
+		if (type->flags & TRACEEVAL_FL_SIGNED)
+			val = (long long)dst->number_8;
+		else
+			val = (unsigned long long)dst->number_8;
+		break;
+
+	case TRACEEVAL_TYPE_STRING:
 		dst->string = NULL;
 
 		if (src->string)
 			dst->string = strdup(src->string);
-		else
-			return 0;
 
 		if (!dst->string)
 			return -1;
+		return 0;
+	default:
+		return 0;
+	}
+
+	if (!stat)
+		return 0;
+
+	if (!stat->count++) {
+		stat->max = val;
+		stat->min = val;
+		stat->total = val;
+		return 0;
+	}
+
+	if (type->flags & TRACEEVAL_FL_SIGNED) {
+		if ((long long)stat->max < (long long)val)
+			stat->max = val;
+		if ((long long)stat->min > (long long)val)
+			stat->min = val;
+		stat->total += (long long)val;
+	} else {
+		if (stat->max < val)
+			stat->max = val;
+		if (stat->min > val)
+			stat->min = val;
+		stat->total += val;
 	}
 
 	return 0;
@@ -547,6 +611,7 @@ static void data_release(size_t size, union traceeval_data **data,
  * Returns 1 on success, -1 on error.
  */
 static int dup_traceeval_data_set(size_t size, struct traceeval_type *type,
+				  struct traceeval_stat *stats,
 				  const union traceeval_data *orig,
 				  union traceeval_data **copy)
 {
@@ -561,7 +626,8 @@ static int dup_traceeval_data_set(size_t size, struct traceeval_type *type,
 		return -1;
 
 	for (i = 0; i < size; i++) {
-		if (copy_traceeval_data(type + i, (*copy) + i, orig + i))
+		if (copy_traceeval_data(type + i, stats ? stats + i : NULL,
+					 (*copy) + i, orig + i))
 			goto fail;
 	}
 
@@ -604,7 +670,7 @@ int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
 		return check;
 
 	return dup_traceeval_data_set(teval->nr_val_types, teval->val_types,
-				      entry->vals, results);
+				      NULL, entry->vals, results);
 }
 
 /*
@@ -659,18 +725,22 @@ static int create_entry(struct traceeval *teval,
 	union traceeval_data *new_vals;
 	struct entry *entry;
 
+	entry = create_hist_entry(teval, keys);
+	if (!entry)
+		return -1;
+
+	entry->val_stats = calloc(teval->nr_key_types, sizeof(*entry->val_stats));
+	if (!entry->val_stats)
+		goto fail_entry;
+
 	/* copy keys */
 	if (dup_traceeval_data_set(teval->nr_key_types, teval->key_types,
-				   keys, &new_keys) == -1)
-		return -1;
+				   NULL, keys, &new_keys) == -1)
+		goto fail_stats;
 
 	/* copy vals */
 	if (dup_traceeval_data_set(teval->nr_val_types, teval->val_types,
-				   vals, &new_vals) == -1)
-		goto fail_vals;
-
-	entry = create_hist_entry(teval, keys);
-	if (!entry)
+				   entry->val_stats, vals, &new_vals) == -1)
 		goto fail;
 
 	entry->keys = new_keys;
@@ -679,10 +749,13 @@ static int create_entry(struct traceeval *teval,
 	return 0;
 
 fail:
-	data_release(teval->nr_val_types, &new_vals, teval->val_types);
-
-fail_vals:
 	data_release(teval->nr_key_types, &new_keys, teval->key_types);
+
+fail_stats:
+	free(entry->val_stats);
+
+fail_entry:
+	free(entry);
 	return -1;
 }
 
@@ -699,12 +772,85 @@ static int update_entry(struct traceeval *teval, struct entry *entry,
 	union traceeval_data *new_vals;
 
 	if (dup_traceeval_data_set(teval->nr_val_types, teval->val_types,
-				   vals, &new_vals) == -1)
+				   entry->val_stats, vals, &new_vals) == -1)
 		return -1;
 
 	clean_data_set(entry->vals, teval->val_types, teval->nr_val_types);
 	entry->vals = new_vals;
 	return 0;
+}
+
+struct traceeval_stat *traceeval_stat(struct traceeval *teval,
+				      const union traceeval_data *keys,
+				      struct traceeval_type *type)
+{
+	struct entry *entry;
+	int ret;
+
+	/* Only value numbers have stats */
+	if (!(type->flags & TRACEEVAL_FL_VALUE))
+		return NULL;
+
+	switch (type->type) {
+	case TRACEEVAL_TYPE_NUMBER:
+	case TRACEEVAL_TYPE_NUMBER_64:
+	case TRACEEVAL_TYPE_NUMBER_32:
+	case TRACEEVAL_TYPE_NUMBER_16:
+	case TRACEEVAL_TYPE_NUMBER_8:
+		break;
+	default:
+		return NULL;
+	}
+
+	ret = get_entry(teval, keys, &entry);
+	if (ret <= 0)
+		return NULL;
+
+	return &entry->val_stats[type->index];
+}
+
+/**
+ * traceeval_stat_max - return max value of stat
+ * @stat: The stat structure that holds the stats
+ *
+ * Returns the max value within @stat.
+ */
+unsigned long long traceeval_stat_max(struct traceeval_stat *stat)
+{
+	return stat->max;
+}
+
+/**
+ * traceeval_stat_min - return min value of stat
+ * @stat: The stat structure that holds the stats
+ *
+ * Returns the min value within @stat.
+ */
+unsigned long long traceeval_stat_min(struct traceeval_stat *stat)
+{
+	return stat->min;
+}
+
+/**
+ * traceeval_stat_total - return total value of stat
+ * @stat: The stat structure that holds the stats
+ *
+ * Returns the total value within @stat.
+ */
+unsigned long long traceeval_stat_total(struct traceeval_stat *stat)
+{
+	return stat->total;
+}
+
+/**
+ * traceeval_stat_count - return count value of stat
+ * @stat: The stat structure that holds the stats
+ *
+ * Returns the count value within @stat.
+ */
+unsigned long long traceeval_stat_count(struct traceeval_stat *stat)
+{
+	return stat->count;
 }
 
 /*
