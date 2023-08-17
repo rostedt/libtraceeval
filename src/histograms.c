@@ -37,7 +37,7 @@ static void print_err(const char *fmt, ...)
  */
 static int compare_traceeval_data(struct traceeval *teval,
 				  struct traceeval_type *type,
-				  union traceeval_data *orig,
+				  const union traceeval_data *orig,
 				  const union traceeval_data *copy)
 {
 	int i;
@@ -902,4 +902,260 @@ int traceeval_insert(struct traceeval *teval,
 		return create_entry(teval, keys, vals);
 	else
 		return update_entry(teval, entry, vals);
+}
+
+/**
+ * traceeval_iterator_put - release a given iterator
+ * @iter: The iterartor to release
+ *
+ * Frees the resources of an @iter that was created by
+ * traceeval_iterator_get().
+ */
+void traceeval_iterator_put(struct traceeval_iterator *iter)
+{
+	if (!iter)
+		return;
+
+	free(iter->direction);
+	free(iter->entries);
+	free(iter->sort);
+	free(iter);
+}
+
+/**
+ * traceeval_iterator_get - get a handle to iterate over a given traceeval
+ * @teval: The traceeval handle to iterate over
+ *
+ * Returns a handle to iterate over the given @teval. Must be freed with
+ * traceeval_iterator_put(). It can be used with traceeval_iterator_next()
+ * to retrieve the keys of the next entry in @teval.
+ *
+ * Use traceeval_iterator_sort() to specify the order of the entries
+ * returned by traceeval_iterator_next().
+ *
+ * Returns an allocated iterator on success, and NULL on failure.
+ */
+struct traceeval_iterator *traceeval_iterator_get(struct traceeval *teval)
+{
+	struct traceeval_iterator *iter;
+	struct hash_table *hist = teval->hist;
+	struct hash_iter *hiter;
+	struct hash_item *item;
+	int i;
+
+	iter = calloc(1, sizeof(*iter));
+	if (!iter)
+		return NULL;
+
+	iter->teval = teval;
+	iter->nr_entries = hash_nr_items(hist);
+	iter->entries = calloc(iter->nr_entries, sizeof(*iter->entries));
+	if (!iter->entries) {
+		free(iter);
+		return NULL;
+	}
+
+	for (i = 0, hiter = hash_iter_start(hist); (item = hash_iter_next(hiter)); i++) {
+		struct entry *entry = container_of(item, struct entry, hash);
+
+		iter->entries[i] = entry;
+	}
+
+	/* Loop must match entries */
+	if (i != iter->nr_entries) {
+		traceeval_iterator_put(iter);
+		return NULL;
+	}
+
+	return iter;
+}
+
+static struct traceeval_type *find_sort_type(struct traceeval *teval,
+					     const char *name)
+{
+	struct traceeval_type *type;
+	int i;
+
+	/* Check values first, and then keys */
+	for (i = 0; i < teval->nr_val_types; i++) {
+		type = &teval->val_types[i];
+
+		if (strcmp(type->name, name) == 0)
+			return type;
+	}
+
+	for (i = 0; i < teval->nr_key_types; i++) {
+		type = &teval->key_types[i];
+
+		if (strcmp(type->name, name) == 0)
+			return type;
+	}
+
+	return NULL;
+}
+
+/**
+ * traceeval_iterator_sort - sort the entries that an iterator will return
+ * @iter: The iterator to specify the sort order of the entries
+ * @sort_field: The name of the key or value to sort with.
+ * @level: The level of sorting (0 for first order, 1 for second, ...)
+ * @ascending: If the sort should go forward or backward.
+ *
+ * The iterator has a list of entries to produce with traceeval_iterator_next().
+ * This function specifies what the order of the output of that function will
+ * be. Note, whenever this function is called, it resets the @iter so that
+ * the traceveal_iterator_next() will start from the beginning again.
+ *
+ * In other words, be very careful to ever call this function in a middle
+ * of a loop that is using traceeval_iterator_next(), otherwise you may end
+ * up in an infinite loop!
+ *
+ * The @level specifies the level of sorting. That is, for @level = 0,
+ * it will decide the main sorting of the @iter. For @level = 1, it will
+ * be the tie breaker for two entries that are equal for the @level = 0
+ * sort. @level = 2, will be the tie breaker for @level = 1, and so on.
+ *
+ * Note, if traceeval_iterator_next() is called, and there's a missing @level,
+ * it will fail. That is, if this function is called once with @level = 0 and
+ * againg with @level = 2, but never with @level = 1, the call to
+ * traceeval_iterator_next() will fail.
+ *
+ * If this function is called multiple times with the same @level, then the
+ * last call will define the what that @level will do.
+ *
+ * The @ascending will determine if "smaller" items go first if true, and
+ * "larger" items go first if false.
+ *
+ * Return 0 on success and -1 on failure.
+ */
+int traceeval_iterator_sort(struct traceeval_iterator *iter, const char *sort_field,
+			    int level, bool ascending)
+{
+	bool *direction = iter->direction;
+	struct traceeval_type **sort = iter->sort;
+	struct traceeval_type *type;
+	int num_levels = level + 1;
+
+	type = find_sort_type(iter->teval, sort_field);
+	if (!type)
+		return -1;
+
+	/* pointer and dynamic types must have a cmp function */
+	switch (type->type) {
+	case TRACEEVAL_TYPE_POINTER:
+	case TRACEEVAL_TYPE_DYNAMIC:
+		if (!type->cmp)
+			return -1;
+		break;
+	default:
+		break;
+	}
+
+	if (num_levels > iter->nr_sort) {
+		sort = realloc(sort, sizeof(*sort) * num_levels);
+		if (!sort)
+			return -1;
+
+		iter->sort = sort;
+
+		direction = realloc(direction, sizeof(*direction) * num_levels);
+		if (!direction)
+			return -1;
+
+		iter->direction = direction;
+
+		/* Make sure the newly allocated contain NULL */
+		for (int i = iter->nr_sort; i < num_levels; i++)
+			sort[i] = NULL;
+
+		iter->nr_sort = level + 1;
+	}
+
+	sort[level] = type;
+	direction[level] = ascending;
+	iter->needs_sort = true;
+	return 0;
+}
+
+static int iter_cmp(const void *A, const void *B, void *data)
+{
+	struct traceeval_iterator *iter = data;
+	struct traceeval *teval = iter->teval;
+	const struct entry *a = *((const struct entry **)A);
+	const struct entry *b = *((const struct entry **)B);
+	int ret;
+
+	for (int i = 0; i < iter->nr_sort; i++) {
+		struct traceeval_type *type;
+		union traceeval_data *dataA;
+		union traceeval_data *dataB;
+
+		type = iter->sort[i];
+
+		if (type->flags & TRACEEVAL_FL_KEY) {
+			dataA = &a->keys[type->index];
+			dataB = &b->keys[type->index];
+		} else {
+			dataA = &a->vals[type->index];
+			dataB = &b->vals[type->index];
+		}
+
+		ret = compare_traceeval_data(teval, type, dataA, dataB);
+
+		if (ret)
+			return iter->direction[i] ? ret : ret * -1;
+	}
+
+	return 0;
+}
+
+static int sort_iter(struct traceeval_iterator *iter)
+{
+	int i;
+
+	/* Make sure all levels are filled */
+	for (i = 0; i < iter->nr_sort; i++) {
+		if (!iter->sort[i])
+			return -1;
+	}
+
+	qsort_r(iter->entries, iter->nr_entries, sizeof(*iter->entries),
+		iter_cmp, iter);
+
+	iter->needs_sort = false;
+	iter->next = 0;
+
+	return 0;
+}
+
+/**
+ * traceeval_iterator_next - retrieve the next entry from an iterator
+ * @iter: The iterator to retrieve the next entry from
+ * @keys: The returned keys of the next entry (if exists)
+ *
+ * This returns the keys for the next entry in the traceeval being
+ * iterated over by @iter. If there are no more entries, 0 is returned
+ * and @keys are untouched.
+ *
+ * Returns 1 if another entry is returned, or 0 if not (or negative on error)
+ */
+int traceeval_iterator_next(struct traceeval_iterator *iter,
+			    const union traceeval_data **keys)
+{
+	struct entry *entry;
+	int ret;
+
+	if (iter->needs_sort) {
+		ret = sort_iter(iter);
+		if (ret < 0)
+			return ret;
+		iter->next = 0;
+	}
+
+	if (iter->next >= iter->nr_entries)
+		return 0;
+
+	entry = iter->entries[iter->next++];
+	*keys = entry->keys;
+	return 1;
 }

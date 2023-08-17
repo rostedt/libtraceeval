@@ -70,6 +70,17 @@ struct traceeval {
 	size_t				nr_val_types;
 };
 
+struct traceeval_iterator {
+	struct traceeval		*teval;
+	struct entry			**entries;
+	struct traceeval_type		**sort;
+	bool				*direction;
+	size_t				nr_entries;
+	size_t				nr_sort;
+	size_t				next;
+	bool				needs_sort;
+};
+
 extern struct hash_table *hash_alloc(void);
 extern void hash_free(struct hash_table *hash);
 extern void hash_add(struct hash_table *hash, struct hash_item *item, unsigned key);

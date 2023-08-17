@@ -163,4 +163,11 @@ unsigned long long traceeval_stat_min(struct traceeval_stat *stat);
 unsigned long long traceeval_stat_total(struct traceeval_stat *stat);
 unsigned long long traceeval_stat_count(struct traceeval_stat *stat);
 
+struct traceeval_iterator *traceeval_iterator_get(struct traceeval *teval);
+void traceeval_iterator_put(struct traceeval_iterator *iter);
+int traceeval_iterator_sort(struct traceeval_iterator *iter, const char *sort_field,
+			    int level, bool ascending);
+int traceeval_iterator_next(struct traceeval_iterator *iter,
+			    const union traceeval_data **keys);
+
 #endif /* __LIBTRACEEVAL_HIST_H__ */
