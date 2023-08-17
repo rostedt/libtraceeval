@@ -348,6 +348,9 @@ $(LIBRARY_STATIC): force
 $(LIBRARY_SHARED): force
 	$(Q)$(call descend,$(src)/src,$(LIBRARY_SO))
 
+samples: $(LIBRARY_STATIC) force
+	$(Q)$(call descend,$(src)/samples,all)
+
 #	$(Q)$(call descend_clean,utest)
 clean:
 	$(Q)$(call descend_clean,src)
