@@ -1160,6 +1160,41 @@ static int sort_iter(struct traceeval_iterator *iter)
 	return 0;
 }
 
+struct iter_custom_data {
+	struct traceeval_iterator *iter;
+	traceeval_cmp_fn sort_fn;
+	void *data;
+};
+
+static int iter_custom_cmp(const void *A, const void *B, void *data)
+{
+	struct iter_custom_data *cust_data = data;
+	struct traceeval_iterator *iter = cust_data->iter;
+	struct traceeval *teval = iter->teval;
+	const struct entry *a = *((const struct entry **)A);
+	const struct entry *b = *((const struct entry **)B);
+
+	return cust_data->sort_fn(teval, a->keys, a->vals, b->keys, b->vals,
+				  cust_data->data);
+}
+
+int traceeval_iterator_sort_custom(struct traceeval_iterator *iter,
+				   traceeval_cmp_fn sort_fn, void *data)
+{
+	struct iter_custom_data cust_data = {
+		.iter = iter,
+		.sort_fn = sort_fn,
+		.data = data
+	};
+
+	qsort_r(iter->entries, iter->nr_entries, sizeof(*iter->entries),
+		iter_custom_cmp, &cust_data);
+
+	iter->needs_sort = false;
+	iter->next = 0;
+	return 0;
+}
+
 /**
  * traceeval_iterator_next - retrieve the next entry from an iterator
  * @iter: The iterator to retrieve the next entry from

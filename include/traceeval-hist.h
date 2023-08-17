@@ -86,6 +86,13 @@ typedef int (*traceeval_data_copy_fn)(const struct traceeval_type *type,
 				      union traceeval_data *dst,
 				      const union traceeval_data *src);
 
+typedef int (*traceeval_cmp_fn)(struct traceeval *teval,
+				const union traceeval_data *Akeys,
+				const union traceeval_data *Avals,
+				const union traceeval_data *Bkeys,
+				const union traceeval_data *Bvals,
+				void *data);
+
 /*
  * struct traceeval_type - Describes the type of a traceevent_data instance
  * @type: The enum type that describes the traceeval_data
@@ -172,6 +179,8 @@ struct traceeval_iterator *traceeval_iterator_get(struct traceeval *teval);
 void traceeval_iterator_put(struct traceeval_iterator *iter);
 int traceeval_iterator_sort(struct traceeval_iterator *iter, const char *sort_field,
 			    int level, bool ascending);
+int traceeval_iterator_sort_custom(struct traceeval_iterator *iter,
+				   traceeval_cmp_fn sort_fn, void *data);
 int traceeval_iterator_next(struct traceeval_iterator *iter,
 			    const union traceeval_data **keys);
 
