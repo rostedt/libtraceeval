@@ -202,6 +202,44 @@ fail:
 	return -1;
 }
 
+static int check_keys(struct traceeval_type *keys)
+{
+	for (int i = 0; keys[i].type != TRACEEVAL_TYPE_NONE; i++) {
+		/* Define this as a key */
+		keys[i].flags |= TRACEEVAL_FL_KEY;
+		keys[i].flags &= ~TRACEEVAL_FL_VALUE;
+
+		keys[i].index = i;
+
+		switch (keys[i].type) {
+		case TRACEEVAL_TYPE_POINTER:
+		case TRACEEVAL_TYPE_DYNAMIC:
+			/*
+			 * Key pointers and dynamic types must have a
+			 * cmp and hash function
+			 */
+			if (!keys[i].cmp || !keys[i].hash)
+				return -1;
+			break;
+		default:
+			break;
+		}
+	}
+	return 0;
+}
+
+static int check_vals(struct traceeval_type *vals)
+{
+	for (int i = 0; vals[i].type != TRACEEVAL_TYPE_NONE; i++) {
+		/* Define this as a value */
+		vals[i].flags |= TRACEEVAL_FL_VALUE;
+		vals[i].flags &= ~TRACEEVAL_FL_KEY;
+
+		vals[i].index = i;
+	}
+	return 0;
+}
+
 /*
  * traceeval_init - create a traceeval descriptor
  * @keys: Defines the keys to differentiate traceeval entries
@@ -212,7 +250,12 @@ fail:
  * the "histogram". Note, both the @keys and @vals array must end with:
  * { .type = TRACEEVAL_TYPE_NONE }.
  *
- * The @keys and @vals passed in are copied for internal use.
+ * The @keys and @vals passed in are copied for internal use, but they are
+ * still modified to add the flags to denote their type (key or value) as
+ * well as the index into the keys or vals array respectively. This is
+ * to help speed up other operations that may need to know the index of
+ * the given type, and remove the burden from the user to make sure they
+ * are added.
  *
  * For any member of @keys or @vals that isn't of type TRACEEVAL_TYPE_NONE,
  * the name field must be a null-terminated string. Members of type
@@ -226,11 +269,12 @@ fail:
  *
  * Returns the descriptor on success, or NULL on error.
  */
-struct traceeval *traceeval_init(const struct traceeval_type *keys,
-				 const struct traceeval_type *vals)
+struct traceeval *traceeval_init(struct traceeval_type *keys,
+				 struct traceeval_type *vals)
 {
 	struct traceeval *teval;
 	char *err_msg;
+	int ret;
 
 	if (!keys)
 		return NULL;
@@ -245,6 +289,16 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 	if (!teval) {
 		err_msg = "Failed to allocate memory for traceeval instance";
 		goto fail;
+	}
+
+	ret = check_keys(keys);
+	if (ret < 0)
+		goto fail_release;
+
+	if (vals) {
+		ret = check_vals(vals);
+		if (ret < 0)
+			goto fail_release;
 	}
 
 	/* alloc key types */

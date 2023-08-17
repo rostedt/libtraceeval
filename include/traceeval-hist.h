@@ -32,8 +32,10 @@ enum traceeval_data_type {
 
 /* Statistics specification flags */
 enum traceeval_flags {
-	TRACEEVAL_FL_SIGNED		= (1 << 0),
-	TRACEEVAL_FL_TIMESTAMP		= (1 << 1),
+	TRACEEVAL_FL_KEY		= (1 << 0),
+	TRACEEVAL_FL_VALUE		= (1 << 1),
+	TRACEEVAL_FL_SIGNED		= (1 << 2),
+	TRACEEVAL_FL_TIMESTAMP		= (1 << 3),
 };
 
 /*
@@ -120,6 +122,7 @@ struct traceeval_type {
 	char				*name;
 	enum traceeval_data_type	type;
 	size_t				flags;
+	size_t				index;
 	size_t				id;
 	traceeval_data_release_fn	release;
 	traceeval_data_cmp_fn		cmp;
@@ -142,8 +145,8 @@ struct traceeval;
 
 /* Histogram interfaces */
 
-struct traceeval *traceeval_init(const struct traceeval_type *keys,
-				 const struct traceeval_type *vals);
+struct traceeval *traceeval_init(struct traceeval_type *keys,
+				 struct traceeval_type *vals);
 
 void traceeval_release(struct traceeval *teval);
 
