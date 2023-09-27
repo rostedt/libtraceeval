@@ -968,6 +968,7 @@ int traceeval_remove(struct traceeval *teval,
 		return check;
 
 	hash_remove(hist, &entry->hash);
+	free_entry(teval, entry);
 
 	teval->update_counter++;
 
@@ -1305,10 +1306,13 @@ int traceeval_iterator_next(struct traceeval_iterator *iter,
 		iter->next = 0;
 	}
 
-	if (iter->next >= iter->nr_entries)
-		return 0;
+	do {
+		if (iter->next >= iter->nr_entries)
+			return 0;
 
-	entry = iter->entries[iter->next++];
+		entry = iter->entries[iter->next++];
+	} while (!entry);
+
 	*keys = entry->keys;
 	return 1;
 }
@@ -1338,6 +1342,9 @@ int traceeval_iterator_query(struct traceeval_iterator *iter,
 		return 0;
 
 	entry = iter->entries[iter->next - 1];
+	if (!entry)
+		return 0;
+
 	*results = entry->vals;
 
 	return 1;
@@ -1386,5 +1393,39 @@ struct traceeval_stat *traceeval_iterator_stat(struct traceeval_iterator *iter,
 		return NULL;
 
 	entry = iter->entries[iter->next - 1];
-	return &entry->val_stats[type->index];
+	return entry ? &entry->val_stats[type->index] : NULL;
+}
+
+/**
+ * traceeval_iterator_remove - remove the current iterator entry
+ * @iter: The iterator to remove the entry from
+ *
+ * This will remove the current entry from the histogram.
+ * This is useful if the current entry should be removed. It will not
+ * affect the traceeval_iterator_next().
+ *
+ * Returns 1 if it successfully removed the entry, 0 if for some reason
+ * there was no "current entry" (called before traceeval_iterator_next()).
+ */
+int traceeval_iterator_remove(struct traceeval_iterator *iter)
+{
+	struct traceeval *teval = iter->teval;
+	struct hash_table *hist = teval->hist;
+	struct entry *entry;
+
+	if (iter->next < 1 || iter->next > iter->nr_entries)
+		return 0;
+
+	entry = iter->entries[iter->next - 1];
+	if (!entry)
+		return 0;
+
+	hash_remove(hist, &entry->hash);
+	free_entry(teval, entry);
+
+	/* The entry no longer exists */
+	iter->entries[iter->next - 1] = NULL;
+	teval->update_counter++;
+
+	return 1;
 }
