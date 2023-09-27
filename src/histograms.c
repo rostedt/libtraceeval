@@ -740,7 +740,7 @@ static int create_entry(struct traceeval *teval,
 	if (!entry)
 		return -1;
 
-	entry->val_stats = calloc(teval->nr_key_types, sizeof(*entry->val_stats));
+	entry->val_stats = calloc(teval->nr_val_types, sizeof(*entry->val_stats));
 	if (!entry->val_stats)
 		goto fail_entry;
 
