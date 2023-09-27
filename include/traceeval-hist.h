@@ -211,9 +211,13 @@ int traceeval_query_size(struct traceeval *teval, const struct traceeval_data *k
 void traceeval_results_release(struct traceeval *teval,
 			       const struct traceeval_data *results);
 
-struct traceeval_stat *traceeval_stat(struct traceeval *teval,
-				      const struct traceeval_data *keys,
-				      struct traceeval_type *type);
+#define traceeval_stat(teval, keys, type)				\
+	traceeval_stat_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), type)
+
+struct traceeval_stat *traceeval_stat_size(struct traceeval *teval,
+					   const struct traceeval_data *keys,
+					   size_t nr_keys,
+					   struct traceeval_type *type);
 
 unsigned long long traceeval_stat_max(struct traceeval_stat *stat);
 unsigned long long traceeval_stat_min(struct traceeval_stat *stat);

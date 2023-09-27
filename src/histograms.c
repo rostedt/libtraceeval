@@ -844,12 +844,16 @@ static bool is_stat_type(struct traceeval_type *type)
 	}
 }
 
-struct traceeval_stat *traceeval_stat(struct traceeval *teval,
-				      const struct traceeval_data *keys,
-				      struct traceeval_type *type)
+struct traceeval_stat *traceeval_stat_size(struct traceeval *teval,
+					   const struct traceeval_data *keys,
+					   size_t nr_keys,
+					   struct traceeval_type *type)
 {
 	struct entry *entry;
 	int ret;
+
+	if (teval->nr_key_types != nr_keys)
+		return NULL;
 
 	if (!is_stat_type(type))
 		return NULL;
