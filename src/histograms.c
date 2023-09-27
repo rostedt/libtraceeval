@@ -241,9 +241,11 @@ static int check_vals(struct traceeval_type *vals)
 }
 
 /*
- * traceeval_init - create a traceeval descriptor
+ * traceeval_init_data_size - create a traceeval descriptor
  * @keys: Defines the keys to differentiate traceeval entries
  * @vals: Defines values attached to entries differentiated by @keys.
+ * @sizeof_type: The size of struct traceeval_type
+ * @sizeof_data: The size of struct traceeval_data
  *
  * The @keys and @vals define how the traceeval instance will be populated.
  * The @keys will be used by traceeval_query() to find an instance within
@@ -267,10 +269,15 @@ static int check_vals(struct traceeval_type *vals)
  * @keys must be populated with at least one element that is not of type
  * TRACEEVAL_TYPE_NONE.
  *
+ * The @sizeof_type and @sizeof_data are used to handle backward compatibility
+ * in the event that items are added to them. All the existing functions
+ * will still need to work with the older sizes.
+ *
  * Returns the descriptor on success, or NULL on error.
  */
-struct traceeval *traceeval_init(struct traceeval_type *keys,
-				 struct traceeval_type *vals)
+struct traceeval *traceeval_init_data_size(struct traceeval_type *keys,
+					   struct traceeval_type *vals,
+					   size_t sizeof_type, size_t sizeof_data)
 {
 	struct traceeval *teval;
 	char *err_msg;
@@ -321,6 +328,9 @@ struct traceeval *traceeval_init(struct traceeval_type *keys,
 		err_msg = "Failed to allocate memory for histogram";
 		goto fail_release;
 	}
+
+	teval->sizeof_type = sizeof_type;
+	teval->sizeof_data = sizeof_data;
 
 	return teval;
 

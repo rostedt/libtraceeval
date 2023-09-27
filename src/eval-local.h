@@ -69,6 +69,8 @@ struct traceeval {
 	size_t				nr_key_types;
 	size_t				nr_val_types;
 	size_t				update_counter;
+	size_t				sizeof_type;
+	size_t				sizeof_data;
 };
 
 struct traceeval_iterator {
