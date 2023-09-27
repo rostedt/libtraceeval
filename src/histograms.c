@@ -479,9 +479,15 @@ static int get_entry(struct traceeval *teval, const struct traceeval_data *keys,
 	struct hash_item *item;
 	unsigned key;
 	int check = 0;
+	int i;
 
 	if (!teval || !keys)
 		return -1;
+
+	for (i = 0; i < teval->nr_key_types; i++) {
+		if (keys[i].type != teval->key_types[i].type)
+			return -1;
+	}
 
 	key = make_hash(teval, keys, hist->bits);
 
@@ -792,6 +798,11 @@ static int update_entry(struct traceeval *teval, struct entry *entry,
 	if (!size)
 		return 0;
 
+	for (i = 0; i < teval->nr_val_types; i++) {
+		if (vals[i].type != teval->val_types[i].type)
+			return -1;
+	}
+
 	for (i = 0; i < size; i++) {
 		old[i] = copy[i];
 
@@ -928,9 +939,15 @@ int traceeval_insert(struct traceeval *teval,
 {
 	struct entry *entry;
 	int check;
+	int i;
 
 	entry = NULL;
 	check = get_entry(teval, keys, &entry);
+
+	for (i = 0; i < teval->nr_val_types; i++) {
+		if (vals[i].type != teval->val_types[i].type)
+			return -1;
+	}
 
 	if (check == -1)
 		return check;

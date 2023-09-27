@@ -785,7 +785,7 @@ static void display_process_stats(struct traceeval *teval,
 	};
 
 	for (int i = 0; i < OTHER; i++) {
-		TRACEEVAL_SET_NUMBER_64(keys[1], i);
+		TRACEEVAL_SET_NUMBER(keys[1], i);
 
 		delta = 0;
 		stat = traceeval_stat(teval, keys, &delta_vals[0]);
