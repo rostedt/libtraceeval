@@ -190,5 +190,7 @@ int traceeval_iterator_query(struct traceeval_iterator *iter,
 			     const union traceeval_data **results);
 void traceeval_iterator_results_release(struct traceeval_iterator *iter,
 					const union traceeval_data *results);
+struct traceeval_stat *traceeval_iterator_stat(struct traceeval_iterator *iter,
+					       struct traceeval_type *type);
 
 #endif /* __LIBTRACEEVAL_HIST_H__ */

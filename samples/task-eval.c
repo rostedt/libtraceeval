@@ -706,7 +706,7 @@ static void display_cpus(struct traceeval *teval)
 		int state = keys[1].number;
 		int cpu = keys[0].number;
 
-		stat = traceeval_stat(teval, keys, &delta_vals[0]);
+		stat = traceeval_iterator_stat(iter, &delta_vals[0]);
 		if (!stat)
 			continue; // die?
 
@@ -773,7 +773,7 @@ static void display_threads(struct traceeval *teval)
 		int state = keys[1].number;
 		int tid = keys[0].number;
 
-		stat = traceeval_stat(teval, keys, &delta_vals[0]);
+		stat = traceeval_iterator_stat(iter, &delta_vals[0]);
 		if (!stat)
 			continue; // die?
 
@@ -875,7 +875,7 @@ static void display(struct task_data *tdata)
 	while (traceeval_iterator_next(iter, &keys) > 0) {
 		int state = keys[1].number;
 
-		stat = traceeval_stat(teval, keys, &delta_vals[0]);
+		stat = traceeval_iterator_stat(iter, &delta_vals[0]);
 		if (!stat)
 			continue;
 

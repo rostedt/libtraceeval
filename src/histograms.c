@@ -812,16 +812,11 @@ static int update_entry(struct traceeval *teval, struct entry *entry,
 	return -1;
 }
 
-struct traceeval_stat *traceeval_stat(struct traceeval *teval,
-				      const union traceeval_data *keys,
-				      struct traceeval_type *type)
+static bool is_stat_type(struct traceeval_type *type)
 {
-	struct entry *entry;
-	int ret;
-
 	/* Only value numbers have stats */
 	if (!(type->flags & TRACEEVAL_FL_VALUE))
-		return NULL;
+		return false;
 
 	switch (type->type) {
 	case TRACEEVAL_TYPE_NUMBER:
@@ -829,10 +824,21 @@ struct traceeval_stat *traceeval_stat(struct traceeval *teval,
 	case TRACEEVAL_TYPE_NUMBER_32:
 	case TRACEEVAL_TYPE_NUMBER_16:
 	case TRACEEVAL_TYPE_NUMBER_8:
-		break;
+		return true;
 	default:
-		return NULL;
+		return false;
 	}
+}
+
+struct traceeval_stat *traceeval_stat(struct traceeval *teval,
+				      const union traceeval_data *keys,
+				      struct traceeval_type *type)
+{
+	struct entry *entry;
+	int ret;
+
+	if (!is_stat_type(type))
+		return NULL;
 
 	ret = get_entry(teval, keys, &entry);
 	if (ret <= 0)
@@ -1358,4 +1364,27 @@ void traceeval_iterator_results_release(struct traceeval_iterator *iter,
 			print_err("Results to be freed without accompanied iterator!");
 		return;
 	}
+}
+
+/**
+ * traceeval_iterator_stat - return the stats from the last iterator entry
+ * @iter: The iterator to retrieve the stats from
+ * @type: The value type to get the stat from
+ *
+ * Returns the stats of the @type for the current iterator entry on success,
+ * or NULL if not found or an error occurred.
+ */
+struct traceeval_stat *traceeval_iterator_stat(struct traceeval_iterator *iter,
+					       struct traceeval_type *type)
+{
+	struct entry *entry;
+
+	if (!is_stat_type(type))
+		return NULL;
+
+	if (iter->next < 1 || iter->next > iter->nr_entries)
+		return NULL;
+
+	entry = iter->entries[iter->next - 1];
+	return &entry->val_stats[type->index];
 }
