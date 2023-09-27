@@ -37,8 +37,8 @@ static void print_err(const char *fmt, ...)
  */
 static int compare_traceeval_data(struct traceeval *teval,
 				  struct traceeval_type *type,
-				  const union traceeval_data *orig,
-				  const union traceeval_data *copy)
+				  const struct traceeval_data *orig,
+				  const struct traceeval_data *copy)
 {
 	int i;
 
@@ -86,14 +86,14 @@ static int compare_traceeval_data(struct traceeval *teval,
 }
 
 /*
- * Compare arrays of union traceeval_data's with respect to @def.
+ * Compare arrays of struct traceeval_data's with respect to @def.
  *
  * Return 1 if @orig and @copy are the same, 0 if not, and -1 on error.
  */
 static int compare_traceeval_data_set(struct traceeval *teval,
 				      struct traceeval_type *defs,
-				      union traceeval_data *orig,
-				      const union traceeval_data *copy, size_t size)
+				      struct traceeval_data *orig,
+				      const struct traceeval_data *copy, size_t size)
 {
 	int check;
 	size_t i;
@@ -335,7 +335,7 @@ fail:
 /*
  * Frees dynamic data in @data if @type specifies a dynamic data type.
  */
-static void clean_data(union traceeval_data *data, struct traceeval_type *type)
+static void clean_data(struct traceeval_data *data, struct traceeval_type *type)
 {
 		if (type->release)
 			type->release(type, data);
@@ -352,7 +352,7 @@ static void clean_data(union traceeval_data *data, struct traceeval_type *type)
 /*
  * Free any specified dynamic data in @data.
  */
-static void clean_data_set(union traceeval_data *data, struct traceeval_type *defs,
+static void clean_data_set(struct traceeval_data *data, struct traceeval_type *defs,
 		       size_t size)
 {
 	size_t i;
@@ -431,7 +431,7 @@ void traceeval_release(struct traceeval *teval)
 	free(teval);
 }
 
-static unsigned make_hash(struct traceeval *teval, const union traceeval_data *keys,
+static unsigned make_hash(struct traceeval *teval, const struct traceeval_data *keys,
 			  int bits)
 {
 	const struct traceeval_type *types = teval->key_types;
@@ -470,7 +470,7 @@ static unsigned make_hash(struct traceeval *teval, const union traceeval_data *k
  *
  * Returns 1 on success, 0 if no match found, -1 on error.
  */
-static int get_entry(struct traceeval *teval, const union traceeval_data *keys,
+static int get_entry(struct traceeval *teval, const struct traceeval_data *keys,
 		     struct entry **result)
 {
 	struct hash_table *hist = teval->hist;
@@ -506,8 +506,8 @@ static int get_entry(struct traceeval *teval, const union traceeval_data *keys,
  */
 static int copy_traceeval_data(struct traceeval_type *type,
 			       struct traceeval_stat *stat,
-			       union traceeval_data *dst,
-			       const union traceeval_data *src)
+			       struct traceeval_data *dst,
+			       const struct traceeval_data *src)
 {
 	unsigned long long val;
 
@@ -597,7 +597,7 @@ static int copy_traceeval_data(struct traceeval_type *type,
  *
  * Does not call the release() callback if a copy() exists.
  */
-static void data_release(size_t size, union traceeval_data *data,
+static void data_release(size_t size, struct traceeval_data *data,
 			 struct traceeval_type *type)
 {
 	for (size_t i = 0; i < size; i++) {
@@ -610,7 +610,7 @@ static void data_release(size_t size, union traceeval_data *data,
 	}
 }
 
-static void data_release_and_free(size_t size, union traceeval_data **data,
+static void data_release_and_free(size_t size, struct traceeval_data **data,
 				struct traceeval_type *type)
 {
 	data_release(size, *data, type);
@@ -625,8 +625,8 @@ static void data_release_and_free(size_t size, union traceeval_data **data,
  */
 static int dup_traceeval_data_set(size_t size, struct traceeval_type *type,
 				  struct traceeval_stat *stats,
-				  const union traceeval_data *orig,
-				  union traceeval_data **copy)
+				  const struct traceeval_data *orig,
+				  struct traceeval_data **copy)
 {
 	size_t i;
 
@@ -669,8 +669,8 @@ fail:
  *
  * Returns 1 if found, 0 if not found, and -1 on error.
  */
-int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
-		    const union traceeval_data **results)
+int traceeval_query(struct traceeval *teval, const struct traceeval_data *keys,
+		    const struct traceeval_data **results)
 {
 	struct entry *entry;
 	int check;
@@ -698,7 +698,7 @@ int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
  * allow traceeval to clean up its references.
  */
 void traceeval_results_release(struct traceeval *teval,
-			       const union traceeval_data *results)
+			       const struct traceeval_data *results)
 {
 	if (!teval || !results) {
 		if (!teval)
@@ -708,7 +708,7 @@ void traceeval_results_release(struct traceeval *teval,
 }
 
 static struct entry *create_hist_entry(struct traceeval *teval,
-				       const union traceeval_data *keys)
+				       const struct traceeval_data *keys)
 {
 	struct hash_table *hist = teval->hist;
 	unsigned key = make_hash(teval, keys, hist->bits);
@@ -729,11 +729,11 @@ static struct entry *create_hist_entry(struct traceeval *teval,
  * Returns 0 on success, -1 on error.
  */
 static int create_entry(struct traceeval *teval,
-			const union traceeval_data *keys,
-			const union traceeval_data *vals)
+			const struct traceeval_data *keys,
+			const struct traceeval_data *vals)
 {
-	union traceeval_data *new_keys;
-	union traceeval_data *new_vals;
+	struct traceeval_data *new_keys;
+	struct traceeval_data *new_vals;
 	struct entry *entry;
 
 	entry = create_hist_entry(teval, keys);
@@ -780,12 +780,12 @@ fail_entry:
  * Return 0 on success, -1 on error.
  */
 static int update_entry(struct traceeval *teval, struct entry *entry,
-			const union traceeval_data *vals)
+			const struct traceeval_data *vals)
 {
 	struct traceeval_stat *stats = entry->val_stats;
 	struct traceeval_type *types = teval->val_types;
-	union traceeval_data *copy = entry->vals;
-	union traceeval_data old[teval->nr_val_types];
+	struct traceeval_data *copy = entry->vals;
+	struct traceeval_data old[teval->nr_val_types];
 	size_t size = teval->nr_val_types;
 	size_t i;
 
@@ -831,7 +831,7 @@ static bool is_stat_type(struct traceeval_type *type)
 }
 
 struct traceeval_stat *traceeval_stat(struct traceeval *teval,
-				      const union traceeval_data *keys,
+				      const struct traceeval_data *keys,
 				      struct traceeval_type *type)
 {
 	struct entry *entry;
@@ -923,8 +923,8 @@ unsigned long long traceeval_stat_count(struct traceeval_stat *stat)
  * Returns 0 on success, and -1 on error.
  */
 int traceeval_insert(struct traceeval *teval,
-		     const union traceeval_data *keys,
-		     const union traceeval_data *vals)
+		     const struct traceeval_data *keys,
+		     const struct traceeval_data *vals)
 {
 	struct entry *entry;
 	int check;
@@ -955,7 +955,7 @@ int traceeval_insert(struct traceeval *teval,
  *        -1 if there was an error.
  */
 int traceeval_remove(struct traceeval *teval,
-		     const union traceeval_data *keys)
+		     const struct traceeval_data *keys)
 {
 	struct hash_table *hist = teval->hist;
 	struct entry *entry;
@@ -1175,8 +1175,8 @@ static int iter_cmp(const void *A, const void *B, void *data)
 
 	for (int i = 0; i < iter->nr_sort; i++) {
 		struct traceeval_type *type;
-		union traceeval_data *dataA;
-		union traceeval_data *dataB;
+		struct traceeval_data *dataA;
+		struct traceeval_data *dataB;
 
 		type = iter->sort[i];
 
@@ -1294,7 +1294,7 @@ int traceeval_iterator_sort_custom(struct traceeval_iterator *iter,
  * Returns 1 if another entry is returned, or 0 if not (or negative on error)
  */
 int traceeval_iterator_next(struct traceeval_iterator *iter,
-			    const union traceeval_data **keys)
+			    const struct traceeval_data **keys)
 {
 	struct entry *entry;
 	int ret;
@@ -1334,7 +1334,7 @@ int traceeval_iterator_next(struct traceeval_iterator *iter,
  * Returns 1 if another entry is returned, or 0 if not (or negative on error)
  */
 int traceeval_iterator_query(struct traceeval_iterator *iter,
-			     const union traceeval_data **results)
+			     const struct traceeval_data **results)
 {
 	struct entry *entry;
 
@@ -1364,7 +1364,7 @@ int traceeval_iterator_query(struct traceeval_iterator *iter,
  * to clean up its references.
  */
 void traceeval_iterator_results_release(struct traceeval_iterator *iter,
-					const union traceeval_data *results)
+					const struct traceeval_data *results)
 {
 	if (!iter || !results) {
 		if (!iter)

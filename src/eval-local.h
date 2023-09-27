@@ -56,8 +56,8 @@ struct traceeval_stat {
 /* A key-value pair */
 struct entry {
 	struct hash_item	hash;
-	union traceeval_data	*keys;
-	union traceeval_data	*vals;
+	struct traceeval_data	*keys;
+	struct traceeval_data	*vals;
 	struct traceeval_stat	*val_stats;
 };
 

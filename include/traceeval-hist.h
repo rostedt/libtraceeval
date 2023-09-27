@@ -52,45 +52,75 @@ struct traceeval_dynamic {
  * Trace data entry for a traceeval histogram
  * Constitutes keys and values.
  */
-union traceeval_data {
-	struct traceeval_dynamic	dyn_data;
-	char				*string;
-	const char			*cstring;
-	void				*pointer;
-	unsigned long			number;
-	unsigned long long		number_64;
-	unsigned int			number_32;
-	unsigned short			number_16;
-	unsigned char			number_8;
+struct traceeval_data {
+	enum traceeval_data_type		type;
+	union {
+		struct traceeval_dynamic	dyn_data;
+		char				*string;
+		const char			*cstring;
+		void				*pointer;
+		unsigned long			number;
+		unsigned long long		number_64;
+		unsigned int			number_32;
+		unsigned short			number_16;
+		unsigned char			number_8;
+	};
 };
+
+#define __TRACEEVAL_DATA(data_type, member, data)			\
+	{  .type = TRACEEVAL_TYPE_##data_type, .member = (data) }
+
+#define DEFINE_TRACEEVAL_NUMBER(data)	   __TRACEEVAL_DATA(NUMBER, number, data)
+#define DEFINE_TRACEEVAL_NUMBER_8(data)	   __TRACEEVAL_DATA(NUMBER_8, number_8, data)
+#define DEFINE_TRACEEVAL_NUMBER_16(data)   __TRACEEVAL_DATA(NUMBER_16, number_16, data)
+#define DEFINE_TRACEEVAL_NUMBER_32(data)   __TRACEEVAL_DATA(NUMBER_32, number_32, data)
+#define DEFINE_TRACEEVAL_NUMBER_64(data)   __TRACEEVAL_DATA(NUMBER_64, number_64, data)
+#define DEFINE_TRACEEVAL_STRING(data)	   __TRACEEVAL_DATA(STRING, string, data)
+#define DEFINE_TRACEEVAL_CSTRING(data)	   __TRACEEVAL_DATA(STRING, cstring, data)
+#define DEFINE_TRACEEVAL_POINTER(data)	   __TRACEEVAL_DATA(POINTER, pointer, data)
+
+#define __TRACEEVAL_SET(data, data_type, member, val)		\
+	do {							\
+		(data).type = TRACEEVAL_TYPE_##data_type;	\
+		(data).member = (val);				\
+	} while (0)
+
+#define TRACEEVAL_SET_NUMBER(data, val)	     __TRACEEVAL_SET(data, NUMBER, number, val)
+#define TRACEEVAL_SET_NUMBER_8(data, val)    __TRACEEVAL_SET(data, NUMBER_8, number_8, val)
+#define TRACEEVAL_SET_NUMBER_16(data, val)   __TRACEEVAL_SET(data, NUMBER_16, number_16, val)
+#define TRACEEVAL_SET_NUMBER_32(data, val)   __TRACEEVAL_SET(data, NUMBER_32, number_32, val)
+#define TRACEEVAL_SET_NUMBER_64(data, val)   __TRACEEVAL_SET(data, NUMBER_64, number_64, val)
+#define TRACEEVAL_SET_STRING(data, val)	     __TRACEEVAL_SET(data, STRING, string, val)
+#define TRACEEVAL_SET_CSTRING(data, val)     __TRACEEVAL_SET(data, STRING, cstring, val)
+#define TRACEEVAL_SET_POINTER(data, val)     __TRACEEVAL_SET(data, POINTER, pointer, val)
 
 struct traceeval_type;
 struct traceeval;
 
 /* release function callback on traceeval_data */
 typedef void (*traceeval_data_release_fn)(const struct traceeval_type *type,
-					  union traceeval_data *data);
+					  struct traceeval_data *data);
 
 /* compare function callback to compare traceeval_data */
 typedef int (*traceeval_data_cmp_fn)(struct traceeval *teval,
 				     const struct traceeval_type *type,
-				     const union traceeval_data *A,
-				     const union traceeval_data *B);
+				     const struct traceeval_data *A,
+				     const struct traceeval_data *B);
 
 /* make a unique value */
 typedef int (*traceeval_data_hash_fn)(struct traceeval *teval,
 				      const struct traceeval_type *type,
-				      const union traceeval_data *data);
+				      const struct traceeval_data *data);
 
 typedef int (*traceeval_data_copy_fn)(const struct traceeval_type *type,
-				      union traceeval_data *dst,
-				      const union traceeval_data *src);
+				      struct traceeval_data *dst,
+				      const struct traceeval_data *src);
 
 typedef int (*traceeval_cmp_fn)(struct traceeval *teval,
-				const union traceeval_data *Akeys,
-				const union traceeval_data *Avals,
-				const union traceeval_data *Bkeys,
-				const union traceeval_data *Bvals,
+				const struct traceeval_data *Akeys,
+				const struct traceeval_data *Avals,
+				const struct traceeval_data *Bkeys,
+				const struct traceeval_data *Bvals,
 				void *data);
 
 /*
@@ -157,20 +187,20 @@ struct traceeval *traceeval_init(struct traceeval_type *keys,
 void traceeval_release(struct traceeval *teval);
 
 int traceeval_insert(struct traceeval *teval,
-		     const union traceeval_data *keys,
-		     const union traceeval_data *vals);
+		     const struct traceeval_data *keys,
+		     const struct traceeval_data *vals);
 
 int traceeval_remove(struct traceeval *teval,
-		     const union traceeval_data *keys);
+		     const struct traceeval_data *keys);
 
-int traceeval_query(struct traceeval *teval, const union traceeval_data *keys,
-		    const union traceeval_data **results);
+int traceeval_query(struct traceeval *teval, const struct traceeval_data *keys,
+		    const struct traceeval_data **results);
 
 void traceeval_results_release(struct traceeval *teval,
-			       const union traceeval_data *results);
+			       const struct traceeval_data *results);
 
 struct traceeval_stat *traceeval_stat(struct traceeval *teval,
-				      const union traceeval_data *keys,
+				      const struct traceeval_data *keys,
 				      struct traceeval_type *type);
 
 unsigned long long traceeval_stat_max(struct traceeval_stat *stat);
@@ -185,11 +215,11 @@ int traceeval_iterator_sort(struct traceeval_iterator *iter, const char *sort_fi
 int traceeval_iterator_sort_custom(struct traceeval_iterator *iter,
 				   traceeval_cmp_fn sort_fn, void *data);
 int traceeval_iterator_next(struct traceeval_iterator *iter,
-			    const union traceeval_data **keys);
+			    const struct traceeval_data **keys);
 int traceeval_iterator_query(struct traceeval_iterator *iter,
-			     const union traceeval_data **results);
+			     const struct traceeval_data **results);
 void traceeval_iterator_results_release(struct traceeval_iterator *iter,
-					const union traceeval_data *results);
+					const struct traceeval_data *results);
 struct traceeval_stat *traceeval_iterator_stat(struct traceeval_iterator *iter,
 					       struct traceeval_type *type);
 int traceeval_iterator_remove(struct traceeval_iterator *iter);

@@ -190,21 +190,15 @@ static void update_process(struct task_data *tdata, const char *comm,
 			   enum sched_state state, enum command cmd,
 			   unsigned long long ts)
 {
-	union traceeval_data keys[] = {
-		{
-			.cstring	= comm,
-		},
-		{
-			.number		= state,
-		},
+	struct traceeval_data keys[] = {
+		DEFINE_TRACEEVAL_CSTRING(	comm	),
+		DEFINE_TRACEEVAL_NUMBER(	state	),
 	};
-	union traceeval_data vals[] = {
-		{
-			.number_64	= ts,
-		},
+	struct traceeval_data vals[] = {
+		DEFINE_TRACEEVAL_NUMBER_64(	ts	),
 	};
-	union traceeval_data new_vals[1] = { };
-	const union traceeval_data *results;
+	struct traceeval_data new_vals[1] = { };
+	const struct traceeval_data *results;
 	int ret;
 
 	switch (cmd) {
@@ -222,14 +216,15 @@ static void update_process(struct task_data *tdata, const char *comm,
 		if (!results[0].number_64)
 			break;
 
-		new_vals[0].number_64 = ts - results[0].number_64;
+		TRACEEVAL_SET_NUMBER_64(new_vals[0], ts - results[0].number_64);
 
 		ret = traceeval_insert(tdata->teval_processes.stop, keys, new_vals);
 		if (ret < 0)
 			pdie("Could not stop process");
 
 		/* Reset the start */
-		new_vals[0].number_64 = 0;
+		TRACEEVAL_SET_NUMBER_64(new_vals[0], 0);
+
 		ret = traceeval_insert(tdata->teval_processes.start, keys, new_vals);
 		if (ret < 0)
 			pdie("Could not start CPU");
@@ -253,15 +248,11 @@ static void stop_process(struct task_data *tdata, const char *comm,
 static struct process_data *
 get_process_data(struct task_data *tdata, const char *comm)
 {
-	union traceeval_data keys[] = {
-		{
-			.cstring = comm,
-		},
-		{
-			.number = RUNNING,
-		}
+	struct traceeval_data keys[] = {
+		DEFINE_TRACEEVAL_CSTRING(	comm	),
+		DEFINE_TRACEEVAL_NUMBER(	RUNNING	),
 	};
-	const union traceeval_data *results;
+	const struct traceeval_data *results;
 	void *data;
 	int ret;
 
@@ -278,16 +269,12 @@ get_process_data(struct task_data *tdata, const char *comm)
 
 void set_process_data(struct task_data *tdata, const char *comm, void *data)
 {
-	union traceeval_data keys[] = {
-		{
-			.cstring = comm,
-		},
-		{
-			.number = RUNNING,
-		}
+	struct traceeval_data keys[] = {
+		DEFINE_TRACEEVAL_CSTRING(	comm	),
+		DEFINE_TRACEEVAL_NUMBER(	RUNNING	),
 	};
-	union traceeval_data new_vals[1] = { };
-	const union traceeval_data *results;
+	struct traceeval_data new_vals[1] = { };
+	const struct traceeval_data *results;
 	int ret;
 
 	ret = traceeval_query(tdata->teval_processes_data, keys, &results);
@@ -296,7 +283,7 @@ void set_process_data(struct task_data *tdata, const char *comm, void *data)
 	if (ret < 0)
 		pdie("Could not query process data");
 
-	new_vals[0].pointer = data;
+	TRACEEVAL_SET_POINTER(new_vals[0], data);
 	ret = traceeval_insert(tdata->teval_processes_data, keys, new_vals);
 	if (ret < 0)
 		pdie("Failed to set process data");
@@ -309,21 +296,15 @@ static void update_cpu(struct teval_pair *teval_pair, int cpu,
 		       enum sched_state state, enum command cmd,
 		       unsigned long long ts)
 {
-	const union traceeval_data *results;
-	union traceeval_data keys[] = {
-		{
-			.number = cpu,
-		},
-		{
-			.number = state,
-		}
+	const struct traceeval_data *results;
+	struct traceeval_data keys[] = {
+		DEFINE_TRACEEVAL_NUMBER(	cpu	),
+		DEFINE_TRACEEVAL_NUMBER(	state	),
 	};
-	union traceeval_data vals[] = {
-		{
-			.number_64	= ts,
-		},
+	struct traceeval_data vals[] = {
+		DEFINE_TRACEEVAL_NUMBER_64(	ts	),
 	};
-	union traceeval_data new_vals[1] = { };
+	struct traceeval_data new_vals[1] = { };
 	int ret;
 
 	switch (cmd) {
@@ -350,14 +331,14 @@ static void update_cpu(struct teval_pair *teval_pair, int cpu,
 		if (!results[0].number_64)
 			break;
 
-		new_vals[0].number_64 = ts - results[0].number_64;
+		TRACEEVAL_SET_NUMBER_64(new_vals[0], ts - results[0].number_64);
 
 		ret = traceeval_insert(teval_pair->stop, keys, new_vals);
 		if (ret < 0)
 			pdie("Could not stop CPU");
 
 		/* Reset the start */
-		new_vals[0].number_64 = 0;
+		TRACEEVAL_SET_NUMBER_64(new_vals[0], 0);
 		ret = traceeval_insert(teval_pair->start, keys, new_vals);
 		if (ret < 0)
 			pdie("Could not start CPU");
@@ -385,21 +366,15 @@ static void update_thread(struct process_data *pdata, int tid,
 			  enum sched_state state, enum command cmd,
 			  unsigned long long ts)
 {
-	const union traceeval_data *results;
-	union traceeval_data keys[] = {
-		{
-			.number = tid,
-		},
-		{
-			.number = state,
-		}
+	const struct traceeval_data *results;
+	struct traceeval_data keys[] = {
+		DEFINE_TRACEEVAL_NUMBER(	tid	),
+		DEFINE_TRACEEVAL_NUMBER(	state	),
 	};
-	union traceeval_data vals[] = {
-		{
-			.number_64	= ts,
-		},
+	struct traceeval_data vals[] = {
+		DEFINE_TRACEEVAL_NUMBER_64(	ts	),
 	};
-	union traceeval_data new_vals[1] = { };
+	struct traceeval_data new_vals[1] = { };
 	int ret;
 
 	switch (cmd) {
@@ -415,7 +390,7 @@ static void update_thread(struct process_data *pdata, int tid,
 		if (ret == 0)
 			return;
 
-		new_vals[0].number_64 = ts - results[0].number_64;
+		TRACEEVAL_SET_NUMBER_64(new_vals[0], ts - results[0].number_64);
 
 		ret = traceeval_insert(pdata->teval_threads.stop, keys, new_vals);
 		traceeval_results_release(pdata->teval_threads.start, results);
@@ -646,17 +621,19 @@ static void print_microseconds(int idx, unsigned long long nsecs)
  *  If RUNNING is equal, then sort by COMM.
  */
 static int compare_pdata(struct traceeval *teval_data,
-				const union traceeval_data *Akeys,
-				const union traceeval_data *Avals,
-				const union traceeval_data *Bkeys,
-				const union traceeval_data *Bvals,
+				const struct traceeval_data *Akeys,
+				const struct traceeval_data *Avals,
+				const struct traceeval_data *Bkeys,
+				const struct traceeval_data *Bvals,
 				void *data)
 {
 	struct traceeval *teval = data; /* The deltas are here */
-	union traceeval_data keysA[] = {
-		{ .cstring = Akeys[0].cstring }, { .number = RUNNING } };
-	union traceeval_data keysB[] = {
-		{ .cstring = Bkeys[0].cstring }, { .number = RUNNING } };
+	struct traceeval_data keysA[] = {
+		DEFINE_TRACEEVAL_CSTRING(	Akeys[0].cstring	),
+		DEFINE_TRACEEVAL_NUMBER(	RUNNING			), };
+	struct traceeval_data keysB[] = {
+		DEFINE_TRACEEVAL_CSTRING(	Bkeys[0].cstring	),
+		DEFINE_TRACEEVAL_NUMBER(	RUNNING			), };
 	struct traceeval_stat *statA;
 	struct traceeval_stat *statB;
 	unsigned long long totalA = -1;
@@ -690,7 +667,7 @@ static int compare_pdata(struct traceeval *teval_data,
 static void display_cpus(struct traceeval *teval)
 {
 	struct traceeval_iterator *iter = traceeval_iterator_get(teval);
-	const union traceeval_data *keys;
+	const struct traceeval_data *keys;
 	struct traceeval_stat *stat;
 	int last_cpu = -1;
 
@@ -762,7 +739,7 @@ static void display_state_times(int state, unsigned long long total)
 static void display_threads(struct traceeval *teval)
 {
 	struct traceeval_iterator *iter = traceeval_iterator_get(teval);
-	const union traceeval_data *keys;
+	const struct traceeval_data *keys;
 	struct traceeval_stat *stat;
 	int last_tid = -1;
 
@@ -802,17 +779,13 @@ static void display_process_stats(struct traceeval *teval,
 {
 	struct traceeval_stat *stat;
 	unsigned long long delta;
-	union traceeval_data keys[] = {
-		{
-			.cstring = comm,
-		},
-		{
-			.number = RUNNING,
-		}
+	struct traceeval_data keys[] = {
+		DEFINE_TRACEEVAL_CSTRING(	comm		),
+		DEFINE_TRACEEVAL_NUMBER(	RUNNING		),
 	};
 
 	for (int i = 0; i < OTHER; i++) {
-		keys[1].number = i;
+		TRACEEVAL_SET_NUMBER_64(keys[1], i);
 
 		delta = 0;
 		stat = traceeval_stat(teval, keys, &delta_vals[0]);
@@ -826,13 +799,13 @@ static void display_processes(struct traceeval *teval,
 			      struct traceeval *teval_data)
 {
 	struct traceeval_iterator *iter = traceeval_iterator_get(teval_data);
-	const union traceeval_data *keys;
+	const struct traceeval_data *keys;
 	int ret;
 
 	traceeval_iterator_sort_custom(iter, compare_pdata, teval);
 
 	while (traceeval_iterator_next(iter, &keys) > 0) {
-		const union traceeval_data *results;
+		const struct traceeval_data *results;
 		struct process_data *pdata = NULL;
 		const char *comm = keys[0].cstring;
 
@@ -857,7 +830,7 @@ static void display(struct task_data *tdata)
 {
 	struct traceeval *teval = tdata->teval_cpus.stop;
 	struct traceeval_iterator *iter = traceeval_iterator_get(teval);
-	const union traceeval_data *keys;
+	const struct traceeval_data *keys;
 	struct traceeval_stat *stat;
 	unsigned long long total_time = 0;
 	unsigned long long idle_time = 0;
