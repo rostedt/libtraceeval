@@ -68,6 +68,7 @@ struct traceeval {
 	struct hash_table		*hist;
 	size_t				nr_key_types;
 	size_t				nr_val_types;
+	size_t				update_counter;
 };
 
 struct traceeval_iterator {
@@ -75,6 +76,7 @@ struct traceeval_iterator {
 	struct entry			**entries;
 	struct traceeval_type		**sort;
 	bool				*direction;
+	size_t				update_counter;
 	size_t				nr_entries;
 	size_t				nr_sort;
 	size_t				next;

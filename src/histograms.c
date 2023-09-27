@@ -757,6 +757,8 @@ static int create_entry(struct traceeval *teval,
 	entry->keys = new_keys;
 	entry->vals = new_vals;
 
+	teval->update_counter++;
+
 	return 0;
 
 fail:
@@ -960,6 +962,9 @@ int traceeval_remove(struct traceeval *teval,
 		return check;
 
 	hash_remove(hist, &entry->hash);
+
+	teval->update_counter++;
+
 	return 1;
 }
 
@@ -981,6 +986,37 @@ void traceeval_iterator_put(struct traceeval_iterator *iter)
 	free(iter);
 }
 
+static int create_iter_array(struct traceeval_iterator *iter)
+{
+	struct traceeval *teval = iter->teval;
+	struct hash_table *hist = teval->hist;
+	struct hash_iter *hiter;
+	struct hash_item *item;
+	int i;
+
+	iter->nr_entries = hash_nr_items(hist);
+	iter->entries = calloc(iter->nr_entries, sizeof(*iter->entries));
+	if (!iter->entries)
+		return -1;
+
+	for (i = 0, hiter = hash_iter_start(hist); (item = hash_iter_next(hiter)); i++) {
+		struct entry *entry = container_of(item, struct entry, hash);
+
+		iter->entries[i] = entry;
+	}
+
+	/* Loop must match entries */
+	if (i != iter->nr_entries) {
+		free(iter->entries);
+		iter->entries = NULL;
+		return -1;
+	}
+
+	iter->update_counter = teval->update_counter;
+
+	return 0;
+}
+
 /**
  * traceeval_iterator_get - get a handle to iterate over a given traceeval
  * @teval: The traceeval handle to iterate over
@@ -997,33 +1033,19 @@ void traceeval_iterator_put(struct traceeval_iterator *iter)
 struct traceeval_iterator *traceeval_iterator_get(struct traceeval *teval)
 {
 	struct traceeval_iterator *iter;
-	struct hash_table *hist = teval->hist;
-	struct hash_iter *hiter;
-	struct hash_item *item;
-	int i;
+	int ret;
 
 	iter = calloc(1, sizeof(*iter));
 	if (!iter)
 		return NULL;
 
 	iter->teval = teval;
-	iter->nr_entries = hash_nr_items(hist);
-	iter->entries = calloc(iter->nr_entries, sizeof(*iter->entries));
-	if (!iter->entries) {
+
+	ret = create_iter_array(iter);
+
+	if (ret < 0) {
 		free(iter);
-		return NULL;
-	}
-
-	for (i = 0, hiter = hash_iter_start(hist); (item = hash_iter_next(hiter)); i++) {
-		struct entry *entry = container_of(item, struct entry, hash);
-
-		iter->entries[i] = entry;
-	}
-
-	/* Loop must match entries */
-	if (i != iter->nr_entries) {
-		traceeval_iterator_put(iter);
-		return NULL;
+		iter = NULL;
 	}
 
 	return iter;
@@ -1168,6 +1190,31 @@ static int iter_cmp(const void *A, const void *B, void *data)
 	return 0;
 }
 
+static int check_update(struct traceeval_iterator *iter)
+{
+	struct entry **entries;
+	size_t nr_entries;
+	int ret;
+
+	/* Was something added or removed from the teval? */
+	if (iter->teval->update_counter == iter->update_counter)
+		return 0;
+
+	entries = iter->entries;
+	nr_entries = iter->nr_entries;
+
+	/* Something changed, need to recreate the array */
+	ret = create_iter_array(iter);
+	if (ret < 0) {
+		iter->entries = entries;
+		iter->nr_entries = nr_entries;
+		return -1;
+	}
+	free(entries);
+
+	return 0;
+}
+
 static int sort_iter(struct traceeval_iterator *iter)
 {
 	int i;
@@ -1177,6 +1224,9 @@ static int sort_iter(struct traceeval_iterator *iter)
 		if (!iter->sort[i])
 			return -1;
 	}
+
+	if (check_update(iter) < 0)
+		return -1;
 
 	qsort_r(iter->entries, iter->nr_entries, sizeof(*iter->entries),
 		iter_cmp, iter);
@@ -1213,6 +1263,9 @@ int traceeval_iterator_sort_custom(struct traceeval_iterator *iter,
 		.sort_fn = sort_fn,
 		.data = data
 	};
+
+	if (check_update(iter) < 0)
+		return -1;
 
 	qsort_r(iter->entries, iter->nr_entries, sizeof(*iter->entries),
 		iter_custom_cmp, &cust_data);
