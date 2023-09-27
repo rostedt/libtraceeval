@@ -675,13 +675,16 @@ fail:
  *
  * Returns 1 if found, 0 if not found, and -1 on error.
  */
-int traceeval_query(struct traceeval *teval, const struct traceeval_data *keys,
-		    const struct traceeval_data **results)
+int traceeval_query_size(struct traceeval *teval, const struct traceeval_data *keys,
+			 size_t nr_keys, const struct traceeval_data **results)
 {
 	struct entry *entry;
 	int check;
 
 	if (!teval || !keys || !results)
+		return -1;
+
+	if (nr_keys != teval->nr_key_types)
 		return -1;
 
 	/* find key and copy its corresponding value pair */
@@ -933,13 +936,16 @@ unsigned long long traceeval_stat_count(struct traceeval_stat *stat)
  *
  * Returns 0 on success, and -1 on error.
  */
-int traceeval_insert(struct traceeval *teval,
-		     const struct traceeval_data *keys,
-		     const struct traceeval_data *vals)
+int traceeval_insert_size(struct traceeval *teval,
+			  const struct traceeval_data *keys, size_t nr_keys,
+			  const struct traceeval_data *vals, size_t nr_vals)
 {
 	struct entry *entry;
 	int check;
 	int i;
+
+	if (nr_keys != teval->nr_key_types || nr_vals != teval->nr_val_types)
+		return -1;
 
 	entry = NULL;
 	check = get_entry(teval, keys, &entry);

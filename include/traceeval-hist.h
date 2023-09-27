@@ -17,6 +17,8 @@
 /* Field name/descriptor for number of hits */
 #define TRACEEVAL_VAL_HITS ((const char *)(-1UL))
 
+#define TRACEEVAL_ARRAY_SIZE(data)	(sizeof(data) / sizeof((data)[0]))
+
 /* Data type distinguishers */
 enum traceeval_data_type {
 	TRACEEVAL_TYPE_NONE,
@@ -186,15 +188,22 @@ struct traceeval *traceeval_init(struct traceeval_type *keys,
 
 void traceeval_release(struct traceeval *teval);
 
-int traceeval_insert(struct traceeval *teval,
-		     const struct traceeval_data *keys,
-		     const struct traceeval_data *vals);
+int traceeval_insert_size(struct traceeval *teval,
+			  const struct traceeval_data *keys, size_t nr_keys,
+			  const struct traceeval_data *vals, size_t nr_vals);
+
+#define traceeval_insert(teval, keys, vals)				\
+	traceeval_insert_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), \
+			      vals, TRACEEVAL_ARRAY_SIZE(vals))
 
 int traceeval_remove(struct traceeval *teval,
 		     const struct traceeval_data *keys);
 
-int traceeval_query(struct traceeval *teval, const struct traceeval_data *keys,
-		    const struct traceeval_data **results);
+int traceeval_query_size(struct traceeval *teval, const struct traceeval_data *keys,
+			 size_t nr_keys, const struct traceeval_data **results);
+
+#define traceeval_query(teval, keys, results)				\
+	traceeval_query_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), results)
 
 void traceeval_results_release(struct traceeval *teval,
 			       const struct traceeval_data *results);
