@@ -29,7 +29,6 @@ enum traceeval_data_type {
 	TRACEEVAL_TYPE_NUMBER,
 	TRACEEVAL_TYPE_POINTER,
 	TRACEEVAL_TYPE_STRING,
-	TRACEEVAL_TYPE_DYNAMIC
 };
 
 /* Statistics specification flags */
@@ -42,23 +41,12 @@ enum traceeval_flags {
 };
 
 /*
- * struct traceeval_dynamic - Storage for dynamic traceeval_types
- * @size: The size of the dynamic type
- * @data: The pointer to the data of the dynamic type
- */
-struct traceeval_dynamic {
-	void		*data;
-	size_t		size;
-};
-
-/*
  * Trace data entry for a traceeval histogram
  * Constitutes keys and values.
  */
 struct traceeval_data {
 	enum traceeval_data_type		type;
 	union {
-		struct traceeval_dynamic	dyn_data;
 		char				*string;
 		const char			*cstring;
 		void				*pointer;
@@ -140,12 +128,11 @@ typedef int (*traceeval_cmp_fn)(struct traceeval *teval,
  * describe both keys and values.
  *
  * The @id field is an optional value in case the user has multiple struct
- * traceeval_type instances with @type fields set to TRACEEVAL_TYPE_DYNAMIC,
- * which each relate to distinct user defined struct traceeval_dynamic
+ * traceeval_type instances and needs to distinguish between them into
  * 'sub-types'.
  *
  * For flexibility, @cmp() and @release() take a struct traceeval_type
- * instance. This allows the user to handle dyn_data and pointer types.
+ * instance. This allows the user to handle pointer types.
  * It may also be used for other types if the default cmp() or release()
  * need to be overridden. Note for string types, even if the release()
  * is called, the string freeing is still taken care of by the traceeval
@@ -156,9 +143,9 @@ typedef int (*traceeval_cmp_fn)(struct traceeval *teval,
  * name (could be used for switch statements).
  *
  * @cmp() is used to override the default compare of a type. This is
- * required to compare dyn_data and pointer types. It should return 0
- * on equality, 1 if the first argument is greater than the second,
- * -1 for the other way around, and -2 on error.
+ * required to pointer types. It should return 0 on equality, 1 if the first
+ * argument is greater than the second, -1 for the other way around,
+ * and -2 on error.
  *
  * @release() is called when a data element is being released (or freed).
  */

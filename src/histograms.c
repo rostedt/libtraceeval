@@ -74,10 +74,6 @@ static int compare_traceeval_data(struct traceeval *teval,
 	case TRACEEVAL_TYPE_NUMBER_8:
 		compare_numbers_return(orig->number_8, copy->number_8);
 
-	case TRACEEVAL_TYPE_DYNAMIC:
-		/* If it didn't specify a cmp function, then punt */
-		return 0;
-
 	default:
 		print_err("%d is an invalid enum traceeval_data_type member",
 				type->type);
@@ -213,11 +209,7 @@ static int check_keys(struct traceeval_type *keys)
 
 		switch (keys[i].type) {
 		case TRACEEVAL_TYPE_POINTER:
-		case TRACEEVAL_TYPE_DYNAMIC:
-			/*
-			 * Key pointers and dynamic types must have a
-			 * cmp and hash function
-			 */
+			/* Key pointer types must have a cmp and hash function */
 			if (!keys[i].cmp || !keys[i].hash)
 				return -1;
 			break;
@@ -343,7 +335,7 @@ fail:
 }
 
 /*
- * Frees dynamic data in @data if @type specifies a dynamic data type.
+ * Free up allocated data.
  */
 static void clean_data(struct traceeval_data *data, struct traceeval_type *type)
 {
@@ -360,7 +352,7 @@ static void clean_data(struct traceeval_data *data, struct traceeval_type *type)
 }
 
 /*
- * Free any specified dynamic data in @data.
+ * Free up allocated memory from @data.
  */
 static void clean_data_set(struct traceeval_data *data, struct traceeval_type *defs,
 		       size_t size)
@@ -387,7 +379,6 @@ static void free_entry(struct traceeval *teval, struct entry *entry)
 	if (!entry)
 		return;
 
-	/* free dynamic traceeval_data */
 	clean_data_set(entry->keys, teval->key_types, teval->nr_key_types);
 	clean_data_set(entry->vals, teval->val_types, teval->nr_val_types);
 
@@ -425,8 +416,7 @@ static void hist_table_release(struct traceeval *teval)
  * it must call traceeval_release().
  *
  * This frees all internally allocated data of @teval and will call the
- * corresponding release() functions registered for keys and values of
- * type TRACEEVAL_TYPE_DYNAMIC.
+ * corresponding release() functions registered for keys and values.
  */
 void traceeval_release(struct traceeval *teval)
 {
@@ -939,8 +929,8 @@ unsigned long long traceeval_stat_count(struct traceeval_stat *stat)
  * by traceeval_init(). The same goes for @vals.
  *
  * If an entry with keys that match @keys exists, it's vals field is freed and
- * set to a copy of @vals. This process calls dyn_release() on any data of
- * type TRACEEVAL_TYPE_DYNAMIC.
+ * set to a copy of @vals. This process calls release() on any data with a
+ * type that specified it.
  * Otherwise, a new entry is created with copies of @keys and @vals.
  *
  * For all elements of @keys and @vals that correspond to a struct
@@ -1170,10 +1160,9 @@ int traceeval_iterator_sort(struct traceeval_iterator *iter, const char *sort_fi
 	if (!type)
 		return -1;
 
-	/* pointer and dynamic types must have a cmp function */
+	/* pointer types must have a cmp function */
 	switch (type->type) {
 	case TRACEEVAL_TYPE_POINTER:
-	case TRACEEVAL_TYPE_DYNAMIC:
 		if (!type->cmp)
 			return -1;
 		break;
