@@ -1336,3 +1336,26 @@ int traceeval_iterator_query(struct traceeval_iterator *iter,
 
 	return 1;
 }
+
+/*
+ * traceeval_iterator_results_release - release the results return by traceeval_iterator_query()
+ * @iter: The iterator descriptor used in traceeval_iterator_query()
+ * @results: The results returned by traceeval_iterator_query()
+ *
+ * The @results returned by traceeval_iterator_query() is owned by @teval,
+ * that is attached to the iterator and how it manages it is implementation
+ * specific. The caller should not worry about it. When the caller of
+ * traceeval_iterator_query() is done with the @results, it must call
+ * traceeval_iterator_results_release() (or traceeval_results_release() if it
+ * has the handle of the teval used to get the iterator) on it to allow traceeval
+ * to clean up its references.
+ */
+void traceeval_iterator_results_release(struct traceeval_iterator *iter,
+					const union traceeval_data *results)
+{
+	if (!iter || !results) {
+		if (!iter)
+			print_err("Results to be freed without accompanied iterator!");
+		return;
+	}
+}
