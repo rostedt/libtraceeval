@@ -186,5 +186,7 @@ int traceeval_iterator_sort_custom(struct traceeval_iterator *iter,
 				   traceeval_cmp_fn sort_fn, void *data);
 int traceeval_iterator_next(struct traceeval_iterator *iter,
 			    const union traceeval_data **keys);
+int traceeval_iterator_query(struct traceeval_iterator *iter,
+			     const union traceeval_data **results);
 
 #endif /* __LIBTRACEEVAL_HIST_H__ */

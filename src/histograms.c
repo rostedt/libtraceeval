@@ -1306,3 +1306,33 @@ int traceeval_iterator_next(struct traceeval_iterator *iter,
 	*keys = entry->keys;
 	return 1;
 }
+
+/**
+ * traceeval_iterator_query - return the results from the current entry in the iterator
+ * @iter: The iterator to retrieve the entry results from
+ * @results: The returned results of the last entry (if exists)
+ *
+ * This returns the @results of the values from the last instance of
+ * traceeval_iterator_next(). It is equivalent of calling:
+ *
+ * traceeval_query() with the keys returned by traceeval_iterator_next().
+ *
+ * Except that it will always quickly return the current entry, whereas the
+ * traceeval_query() will reset the cached next_entry and do a full
+ * lookup again.
+ *
+ * Returns 1 if another entry is returned, or 0 if not (or negative on error)
+ */
+int traceeval_iterator_query(struct traceeval_iterator *iter,
+			     const union traceeval_data **results)
+{
+	struct entry *entry;
+
+	if (iter->next < 1 || iter->next > iter->nr_entries)
+		return 0;
+
+	entry = iter->entries[iter->next - 1];
+	*results = entry->vals;
+
+	return 1;
+}

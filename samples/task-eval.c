@@ -836,7 +836,7 @@ static void display_processes(struct traceeval *teval,
 		struct process_data *pdata = NULL;
 		const char *comm = keys[0].cstring;
 
-		ret = traceeval_query(teval_data, keys, &results);
+		ret = traceeval_iterator_query(iter, &results);
 		if (ret < 0)
 			pdie("Could not query iterator");
 		if (ret < 1)
