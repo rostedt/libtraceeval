@@ -505,6 +505,25 @@ static int get_entry(struct traceeval *teval, const struct traceeval_data *keys,
 	return check;
 }
 
+static bool is_stat_type(struct traceeval_type *type)
+{
+	/* Only value numbers have stats */
+	if (!(type->flags & TRACEEVAL_FL_VALUE) ||
+	    !(type->flags & TRACEEVAL_FL_STAT))
+		return false;
+
+	switch (type->type) {
+	case TRACEEVAL_TYPE_NUMBER:
+	case TRACEEVAL_TYPE_NUMBER_64:
+	case TRACEEVAL_TYPE_NUMBER_32:
+	case TRACEEVAL_TYPE_NUMBER_16:
+	case TRACEEVAL_TYPE_NUMBER_8:
+		return true;
+	default:
+		return false;
+	}
+}
+
 /*
  * Copy @src to @dst with respect to @type.
  *
@@ -571,7 +590,7 @@ static int copy_traceeval_data(struct traceeval_type *type,
 		return 0;
 	}
 
-	if (!stat)
+	if (!stat || !is_stat_type(type))
 		return 0;
 
 	if (!stat->count++) {
@@ -824,24 +843,6 @@ static int update_entry(struct traceeval *teval, struct entry *entry,
 				    copy + i, old + i);
 	}
 	return -1;
-}
-
-static bool is_stat_type(struct traceeval_type *type)
-{
-	/* Only value numbers have stats */
-	if (!(type->flags & TRACEEVAL_FL_VALUE))
-		return false;
-
-	switch (type->type) {
-	case TRACEEVAL_TYPE_NUMBER:
-	case TRACEEVAL_TYPE_NUMBER_64:
-	case TRACEEVAL_TYPE_NUMBER_32:
-	case TRACEEVAL_TYPE_NUMBER_16:
-	case TRACEEVAL_TYPE_NUMBER_8:
-		return true;
-	default:
-		return false;
-	}
 }
 
 struct traceeval_stat *traceeval_stat_size(struct traceeval *teval,

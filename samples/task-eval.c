@@ -147,6 +147,7 @@ static struct traceeval_type delta_vals[] = {
 	{
 		.type	= TRACEEVAL_TYPE_NUMBER_64,
 		.name	= "delta",
+		.flags = TRACEEVAL_FL_STAT,
 	},
 	{
 		.type	= TRACEEVAL_TYPE_NONE,
