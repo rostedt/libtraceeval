@@ -196,8 +196,11 @@ int traceeval_insert_size(struct traceeval *teval,
 	traceeval_insert_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), \
 			      vals, TRACEEVAL_ARRAY_SIZE(vals))
 
-int traceeval_remove(struct traceeval *teval,
-		     const struct traceeval_data *keys);
+int traceeval_remove_size(struct traceeval *teval,
+			  const struct traceeval_data *keys, size_t nr_keys);
+
+#define traceeval_remove(teval, keys)					\
+	traceeval_remove_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys))
 
 int traceeval_query_size(struct traceeval *teval, const struct traceeval_data *keys,
 			 size_t nr_keys, const struct traceeval_data **results);
