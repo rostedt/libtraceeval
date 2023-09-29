@@ -200,7 +200,7 @@ int traceeval_insert_size(struct traceeval *teval,
 
 #define traceeval_insert(teval, keys, vals)				\
 	traceeval_insert_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), \
-			      vals, TRACEEVAL_ARRAY_SIZE(vals))
+			      vals, (void *)vals == NULL ? 0 : TRACEEVAL_ARRAY_SIZE(vals))
 
 int traceeval_remove_size(struct traceeval *teval,
 			  const struct traceeval_data *keys, size_t nr_keys);
