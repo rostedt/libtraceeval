@@ -1,120 +1,245 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (C) 2022 Google Inc, Steven Rostedt <rostedt@goodmis.org>
+ * libtraceeval histogram interface.
+ *
+ * Copyright (C) 2022-2023 Google Inc, Steven Rostedt <rostedt@goodmis.org>
+ * Copyright (C) 2023 Google Inc, Stevie Alvarez <stevie.6strings@gmail.com>
  */
-#ifndef __LIBTRACEEVAL_H__
-#define __LIBTRACEEVAL_H__
+#ifndef __LIBTRACEEVAL_HIST_H__
+#define __LIBTRACEEVAL_HIST_H__
 
 #include <stdlib.h>
+#include <stddef.h>
 #include <stdbool.h>
 
-typedef unsigned long long u64;
-typedef unsigned int u32;
+/* Data definition interfaces */
 
-struct traceeval;
-struct traceeval_key_array;
-struct traceeval_key_info_array;
-struct traceeval_outliers;
+/* Field name/descriptor for number of hits */
+#define TRACEEVAL_VAL_HITS ((const char *)(-1UL))
 
-enum traceeval_type {
+#define TRACEEVAL_ARRAY_SIZE(data)	(sizeof(data) / sizeof((data)[0]))
+
+/* Data type distinguishers */
+enum traceeval_data_type {
 	TRACEEVAL_TYPE_NONE,
-	TRACEEVAL_TYPE_STRING,
-	TRACEEVAL_TYPE_POINTER,
-	TRACEEVAL_TYPE_NUMBER,
-	TRACEEVAL_TYPE_NUMBER_64,
-	TRACEEVAL_TYPE_NUMBER_32,
-	TRACEEVAL_TYPE_NUMBER_16,
 	TRACEEVAL_TYPE_NUMBER_8,
-	TRACEEVAL_TYPE_ARRAY,
-	TRACEEVAL_TYPE_MAX
+	TRACEEVAL_TYPE_NUMBER_16,
+	TRACEEVAL_TYPE_NUMBER_32,
+	TRACEEVAL_TYPE_NUMBER_64,
+	TRACEEVAL_TYPE_NUMBER,
+	TRACEEVAL_TYPE_POINTER,
+	TRACEEVAL_TYPE_STRING,
 };
 
-struct traceeval_key_info {
-	enum traceeval_type	type;
-	size_t			size;
-	ssize_t			count;
-	const char		*name;
+/* Statistics specification flags */
+enum traceeval_flags {
+	TRACEEVAL_FL_KEY		= (1 << 0),
+	TRACEEVAL_FL_VALUE		= (1 << 1),
+	TRACEEVAL_FL_SIGNED		= (1 << 2),
+	TRACEEVAL_FL_TIMESTAMP		= (1 << 3),
+	TRACEEVAL_FL_STAT		= (1 << 4),
 };
 
-struct traceeval_key {
-	enum traceeval_type	type;
-	ssize_t			count;
+/*
+ * Trace data entry for a traceeval histogram
+ * Constitutes keys and values.
+ */
+struct traceeval_data {
+	enum traceeval_data_type		type;
 	union {
-		const char	*string;
-		void   		*pointer;
-		long		number;
-		u64		number_64;
-		u32		number_32;
-		unsigned short	number_16;
-		unsigned char	number_8;
-		void		*array;
+		char				*string;
+		const char			*cstring;
+		void				*pointer;
+		unsigned long			number;
+		unsigned long long		number_64;
+		unsigned int			number_32;
+		unsigned short			number_16;
+		unsigned char			number_8;
 	};
 };
 
-struct traceeval_key_info_array *traceeval_key_info_array_alloc(void);
-void traceeval_key_info_array_free(struct traceeval_key_info_array *iarray);
-int traceeval_key_info_array_add(struct traceeval_key_info_array *iarray,
-					 const struct traceeval_key_info *key);
+#define __TRACEEVAL_DATA(data_type, member, data)			\
+	{  .type = TRACEEVAL_TYPE_##data_type, .member = (data) }
 
-	struct traceeval *traceeval_n_alloc(const char *name,
-					    const struct traceeval_key_info_array *iarray);
-	void traceeval_free(struct traceeval *teval);
+#define DEFINE_TRACEEVAL_NUMBER(data)	   __TRACEEVAL_DATA(NUMBER, number, data)
+#define DEFINE_TRACEEVAL_NUMBER_8(data)	   __TRACEEVAL_DATA(NUMBER_8, number_8, data)
+#define DEFINE_TRACEEVAL_NUMBER_16(data)   __TRACEEVAL_DATA(NUMBER_16, number_16, data)
+#define DEFINE_TRACEEVAL_NUMBER_32(data)   __TRACEEVAL_DATA(NUMBER_32, number_32, data)
+#define DEFINE_TRACEEVAL_NUMBER_64(data)   __TRACEEVAL_DATA(NUMBER_64, number_64, data)
+#define DEFINE_TRACEEVAL_STRING(data)	   __TRACEEVAL_DATA(STRING, string, data)
+#define DEFINE_TRACEEVAL_CSTRING(data)	   __TRACEEVAL_DATA(STRING, cstring, data)
+#define DEFINE_TRACEEVAL_POINTER(data)	   __TRACEEVAL_DATA(POINTER, pointer, data)
 
-	int traceeval_n_start(struct traceeval *teval, const struct traceeval_key *keys,
-			      unsigned long long start);
-	int traceeval_n_stop(struct traceeval *teval, const struct traceeval_key *keys,
-			     unsigned long long stop);
-	int traceeval_n_continue(struct traceeval *teval, const struct traceeval_key *keys,
-				 unsigned long long start);
+#define __TRACEEVAL_SET(data, data_type, member, val)		\
+	do {							\
+		(data).type = TRACEEVAL_TYPE_##data_type;	\
+		(data).member = (val);				\
+	} while (0)
 
-	int traceeval_n_set_private(struct traceeval *teval, const struct traceeval_key *keys,
-				    void *data);
+#define TRACEEVAL_SET_NUMBER(data, val)	     __TRACEEVAL_SET(data, NUMBER, number, val)
+#define TRACEEVAL_SET_NUMBER_8(data, val)    __TRACEEVAL_SET(data, NUMBER_8, number_8, val)
+#define TRACEEVAL_SET_NUMBER_16(data, val)   __TRACEEVAL_SET(data, NUMBER_16, number_16, val)
+#define TRACEEVAL_SET_NUMBER_32(data, val)   __TRACEEVAL_SET(data, NUMBER_32, number_32, val)
+#define TRACEEVAL_SET_NUMBER_64(data, val)   __TRACEEVAL_SET(data, NUMBER_64, number_64, val)
+#define TRACEEVAL_SET_STRING(data, val)	     __TRACEEVAL_SET(data, STRING, string, val)
+#define TRACEEVAL_SET_CSTRING(data, val)     __TRACEEVAL_SET(data, STRING, cstring, val)
+#define TRACEEVAL_SET_POINTER(data, val)     __TRACEEVAL_SET(data, POINTER, pointer, val)
 
-	void *traceeval_n_get_private(struct traceeval *teval, const struct traceeval_key *keys);
+struct traceeval_type;
+struct traceeval;
 
-	struct traceeval_result_array *traceeval_results(struct traceeval *teval);
+/* release function callback on traceeval_data */
+typedef void (*traceeval_data_release_fn)(const struct traceeval_type *type,
+					  struct traceeval_data *data);
 
-	size_t traceeval_result_nr(struct traceeval *teval);
+/* compare function callback to compare traceeval_data */
+typedef int (*traceeval_data_cmp_fn)(struct traceeval *teval,
+				     const struct traceeval_type *type,
+				     const struct traceeval_data *A,
+				     const struct traceeval_data *B);
 
-	size_t traceeval_key_array_nr(struct traceeval_key_array *karray);
-	const struct traceeval_key *traceeval_key_array_indx(const struct traceeval_key_array *karray,
-							     size_t index);
-	struct traceeval_key_array *traceeval_result_indx_key_array(struct traceeval *teval,
-								    size_t index);
-	ssize_t traceeval_result_indx_cnt(struct traceeval *teval, size_t index);
-	ssize_t traceeval_result_indx_total(struct traceeval *teval, size_t index);
-	ssize_t traceeval_result_indx_max(struct traceeval *teval, size_t index);
-	ssize_t traceeval_result_indx_min(struct traceeval *teval, size_t index);
+/* make a unique value */
+typedef int (*traceeval_data_hash_fn)(struct traceeval *teval,
+				      const struct traceeval_type *type,
+				      const struct traceeval_data *data);
 
-	ssize_t traceeval_result_keys_cnt(struct traceeval *teval, const struct traceeval_key *keys);
-	ssize_t traceeval_result_keys_total(struct traceeval *teval, const struct traceeval_key *keys);
-	ssize_t traceeval_result_keys_max(struct traceeval *teval, const struct traceeval_key *keys);
-	ssize_t traceeval_result_keys_min(struct traceeval *teval, const struct traceeval_key *keys);
+typedef int (*traceeval_data_copy_fn)(const struct traceeval_type *type,
+				      struct traceeval_data *dst,
+				      const struct traceeval_data *src);
 
-	struct traceeval *traceeval_1_alloc(const char *name, const struct traceeval_key_info info[1]);
-int traceeval_1_start(struct traceeval *teval, struct traceeval_key key,
-		      unsigned long long start);
-int traceeval_1_set_private(struct traceeval *teval, struct traceeval_key key,
-			    void *data);
-void *traceeval_1_get_private(struct traceeval *teval, struct traceeval_key key);
-int traceeval_1_stop(struct traceeval *teval, struct traceeval_key key,
-		     unsigned long long stop);
-int traceeval_1_continue(struct traceeval *teval, struct traceeval_key key,
-			 unsigned long long start);
+typedef int (*traceeval_cmp_fn)(struct traceeval *teval,
+				const struct traceeval_data *Akeys,
+				const struct traceeval_data *Avals,
+				const struct traceeval_data *Bkeys,
+				const struct traceeval_data *Bvals,
+				void *data);
 
-struct traceeval *traceeval_2_alloc(const char *name, const struct traceeval_key_info kinfo[2]);
+/*
+ * struct traceeval_type - Describes the type of a traceevent_data instance
+ * @type: The enum type that describes the traceeval_data
+ * @name: The string name of the traceeval_data
+ * @flags: flags to describe the traceeval_data
+ * @id: User specified identifier
+ * @release: An optional callback for when the data is being released
+ * @cmp: An optional callback to specify a way to compare the type
+ *
+ * The traceeval_type structure defines expectations for a corresponding
+ * traceeval_data instance for a traceeval histogram instance. Used to
+ * describe both keys and values.
+ *
+ * The @id field is an optional value in case the user has multiple struct
+ * traceeval_type instances and needs to distinguish between them into
+ * 'sub-types'.
+ *
+ * For flexibility, @cmp() and @release() take a struct traceeval_type
+ * instance. This allows the user to handle pointer types.
+ * It may also be used for other types if the default cmp() or release()
+ * need to be overridden. Note for string types, even if the release()
+ * is called, the string freeing is still taken care of by the traceeval
+ * infrastructure.
+ *
+ * The @id field is a user specified field that may allow the same callback
+ * to be used by multiple types and not needing to do a strcmp() against the
+ * name (could be used for switch statements).
+ *
+ * @cmp() is used to override the default compare of a type. This is
+ * required to pointer types. It should return 0 on equality, 1 if the first
+ * argument is greater than the second, -1 for the other way around,
+ * and -2 on error.
+ *
+ * @release() is called when a data element is being released (or freed).
+ */
+struct traceeval_type {
+	char				*name;
+	enum traceeval_data_type	type;
+	size_t				flags;
+	size_t				index;
+	size_t				id;
+	traceeval_data_release_fn	release;
+	traceeval_data_cmp_fn		cmp;
+	traceeval_data_copy_fn		copy;
+	traceeval_data_hash_fn		hash;
+};
 
-int traceeval_sort_totals(struct traceeval *teval, bool ascending);
-int traceeval_sort_max(struct traceeval *teval, bool ascending);
-int traceeval_sort_min(struct traceeval *teval, bool ascending);
-int traceeval_sort_cnt(struct traceeval *teval, bool ascending);
-int traceeval_sort_keys(struct traceeval *teval, bool ascending);
+/* Statistics about a given entry element */
+struct traceeval_stat;
 
-typedef int (*traceeval_cmp_func)(struct traceeval *teval,
-				  const struct traceeval_key_array *A,
-				  const struct traceeval_key_array *B,
-				  void *data);
+/* Iterator over aggregated data */
+struct traceeval_iterator;
 
-int traceeval_sort_custom(struct traceeval *teval, traceeval_cmp_func cmp, void *data);
+struct traceeval;
 
-#endif /* __LIBTRACEEVAL_H__ */
+/* Histogram interfaces */
+
+#define traceeval_init(keys, vals)					\
+	traceeval_init_size(keys, vals,					\
+			    TRACEEVAL_ARRAY_SIZE(keys),			\
+			    (void *)vals == NULL ?  0 : TRACEEVAL_ARRAY_SIZE(vals))
+
+#define traceeval_init_size(keys, vals, nr_keys, nr_vals)		\
+	traceeval_init_data_size(keys, vals, nr_keys, nr_vals,		\
+				 sizeof(struct traceeval_type),		\
+				 sizeof(struct traceeval_data))
+
+struct traceeval *traceeval_init_data_size(struct traceeval_type *keys,
+					   struct traceeval_type *vals,
+					   size_t nr_keys, size_t nr_vals,
+					   size_t sizeof_type, size_t sizeof_data);
+
+void traceeval_release(struct traceeval *teval);
+
+int traceeval_insert_size(struct traceeval *teval,
+			  const struct traceeval_data *keys, size_t nr_keys,
+			  const struct traceeval_data *vals, size_t nr_vals);
+
+#define traceeval_insert(teval, keys, vals)				\
+	traceeval_insert_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), \
+			      vals, (void *)vals == NULL ? 0 : TRACEEVAL_ARRAY_SIZE(vals))
+
+int traceeval_remove_size(struct traceeval *teval,
+			  const struct traceeval_data *keys, size_t nr_keys);
+
+#define traceeval_remove(teval, keys)					\
+	traceeval_remove_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys))
+
+int traceeval_query_size(struct traceeval *teval, const struct traceeval_data *keys,
+			 size_t nr_keys, const struct traceeval_data **results);
+
+#define traceeval_query(teval, keys, results)				\
+	traceeval_query_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), results)
+
+void traceeval_results_release(struct traceeval *teval,
+			       const struct traceeval_data *results);
+
+size_t traceeval_count(struct traceeval *teval);
+
+#define traceeval_stat(teval, keys, type)				\
+	traceeval_stat_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), type)
+
+struct traceeval_stat *traceeval_stat_size(struct traceeval *teval,
+					   const struct traceeval_data *keys,
+					   size_t nr_keys,
+					   struct traceeval_type *type);
+
+unsigned long long traceeval_stat_max(struct traceeval_stat *stat);
+unsigned long long traceeval_stat_min(struct traceeval_stat *stat);
+unsigned long long traceeval_stat_total(struct traceeval_stat *stat);
+unsigned long long traceeval_stat_count(struct traceeval_stat *stat);
+
+struct traceeval_iterator *traceeval_iterator_get(struct traceeval *teval);
+void traceeval_iterator_put(struct traceeval_iterator *iter);
+int traceeval_iterator_sort(struct traceeval_iterator *iter, const char *sort_field,
+			    int level, bool ascending);
+int traceeval_iterator_sort_custom(struct traceeval_iterator *iter,
+				   traceeval_cmp_fn sort_fn, void *data);
+int traceeval_iterator_next(struct traceeval_iterator *iter,
+			    const struct traceeval_data **keys);
+int traceeval_iterator_query(struct traceeval_iterator *iter,
+			     const struct traceeval_data **results);
+void traceeval_iterator_results_release(struct traceeval_iterator *iter,
+					const struct traceeval_data *results);
+struct traceeval_stat *traceeval_iterator_stat(struct traceeval_iterator *iter,
+					       struct traceeval_type *type);
+int traceeval_iterator_remove(struct traceeval_iterator *iter);
+
+#endif /* __LIBTRACEEVAL_HIST_H__ */

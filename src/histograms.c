@@ -11,7 +11,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#include <traceeval-hist.h>
+#include <traceeval.h>
 #include "eval-local.h"
 
 /*

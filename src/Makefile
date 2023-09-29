@@ -3,7 +3,6 @@
 include $(src)/scripts/utils.mk
 
 OBJS =
-OBJS += trace-analysis.o
 OBJS += histograms.o
 OBJS += hash.o
 
