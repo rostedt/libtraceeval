@@ -151,7 +151,8 @@ static void type_release(struct traceeval_type *defs, size_t len)
  * Returns the size of the array pointed to by @copy, or -1 on error.
  */
 static size_t type_alloc(const struct traceeval_type *defs,
-			 struct traceeval_type **copy)
+			 struct traceeval_type **copy,
+			 size_t cnt)
 {
 	struct traceeval_type *new_defs = NULL;
 	size_t size;
@@ -162,7 +163,8 @@ static size_t type_alloc(const struct traceeval_type *defs,
 	if (!defs)
 		return 0;
 
-	for (size = 0; defs && defs[size].type != TRACEEVAL_TYPE_NONE; size++)
+	for (size = 0; defs && size < cnt &&
+		     defs[size].type != TRACEEVAL_TYPE_NONE; size++)
 		;
 
 	if (!size)
@@ -198,9 +200,9 @@ fail:
 	return -1;
 }
 
-static int check_keys(struct traceeval_type *keys)
+static int check_keys(struct traceeval_type *keys, int cnt)
 {
-	for (int i = 0; keys[i].type != TRACEEVAL_TYPE_NONE; i++) {
+	for (int i = 0; i < cnt && keys[i].type != TRACEEVAL_TYPE_NONE; i++) {
 		/* Define this as a key */
 		keys[i].flags |= TRACEEVAL_FL_KEY;
 		keys[i].flags &= ~TRACEEVAL_FL_VALUE;
@@ -220,9 +222,9 @@ static int check_keys(struct traceeval_type *keys)
 	return 0;
 }
 
-static int check_vals(struct traceeval_type *vals)
+static int check_vals(struct traceeval_type *vals, int cnt)
 {
-	for (int i = 0; vals[i].type != TRACEEVAL_TYPE_NONE; i++) {
+	for (int i = 0; i < cnt && vals[i].type != TRACEEVAL_TYPE_NONE; i++) {
 		/* Define this as a value */
 		vals[i].flags |= TRACEEVAL_FL_VALUE;
 		vals[i].flags &= ~TRACEEVAL_FL_KEY;
@@ -269,6 +271,7 @@ static int check_vals(struct traceeval_type *vals)
  */
 struct traceeval *traceeval_init_data_size(struct traceeval_type *keys,
 					   struct traceeval_type *vals,
+					   size_t nr_keys, size_t nr_vals,
 					   size_t sizeof_type, size_t sizeof_data)
 {
 	struct traceeval *teval;
@@ -290,25 +293,25 @@ struct traceeval *traceeval_init_data_size(struct traceeval_type *keys,
 		goto fail;
 	}
 
-	ret = check_keys(keys);
+	ret = check_keys(keys, nr_keys);
 	if (ret < 0)
 		goto fail_release;
 
 	if (vals) {
-		ret = check_vals(vals);
+		ret = check_vals(vals, nr_vals);
 		if (ret < 0)
 			goto fail_release;
 	}
 
 	/* alloc key types */
-	teval->nr_key_types = type_alloc(keys, &teval->key_types);
+	teval->nr_key_types = type_alloc(keys, &teval->key_types, nr_keys);
 	if (teval->nr_key_types <= 0) {
 		err_msg = "Failed to allocate user defined keys";
 		goto fail_release;
 	}
 
 	/* alloc val types */
-	teval->nr_val_types = type_alloc(vals, &teval->val_types);
+	teval->nr_val_types = type_alloc(vals, &teval->val_types, nr_vals);
 	if (teval->nr_val_types < 0) {
 		err_msg = "Failed to allocate user defined values";
 		goto fail_release;

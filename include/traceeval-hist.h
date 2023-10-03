@@ -171,12 +171,19 @@ struct traceeval;
 
 /* Histogram interfaces */
 
-#define traceeval_init(keys, vals) \
-	traceeval_init_data_size(keys, vals, sizeof(struct traceeval_type), \
+#define traceeval_init(keys, vals)					\
+	traceeval_init_size(keys, vals,					\
+			    TRACEEVAL_ARRAY_SIZE(keys),			\
+			    (void *)vals == NULL ?  0 : TRACEEVAL_ARRAY_SIZE(vals))
+
+#define traceeval_init_size(keys, vals, nr_keys, nr_vals)		\
+	traceeval_init_data_size(keys, vals, nr_keys, nr_vals,		\
+				 sizeof(struct traceeval_type),		\
 				 sizeof(struct traceeval_data))
 
 struct traceeval *traceeval_init_data_size(struct traceeval_type *keys,
 					   struct traceeval_type *vals,
+					   size_t nr_keys, size_t nr_vals,
 					   size_t sizeof_type, size_t sizeof_data);
 
 void traceeval_release(struct traceeval *teval);
