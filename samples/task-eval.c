@@ -89,9 +89,6 @@ static struct traceeval_type cpu_keys[] = {
 		.type = TRACEEVAL_TYPE_NUMBER,
 		.name = "Schedule state",
 	},
-	{
-		.type = TRACEEVAL_TYPE_NONE
-	}
 };
 
 static struct traceeval_type process_keys[] = {
@@ -103,9 +100,6 @@ static struct traceeval_type process_keys[] = {
 		.type = TRACEEVAL_TYPE_NUMBER,
 		.name = "Schedule state"
 	},
-	{
-		.type	= TRACEEVAL_TYPE_NONE,
-	}
 };
 
 static struct traceeval_type process_data_vals[] = {
@@ -113,9 +107,6 @@ static struct traceeval_type process_data_vals[] = {
 		.type = TRACEEVAL_TYPE_POINTER,
 		.name = "data",
 	},
-	{
-		.type = TRACEEVAL_TYPE_NONE
-	}
 };
 
 static struct traceeval_type thread_keys[] = {
@@ -127,9 +118,6 @@ static struct traceeval_type thread_keys[] = {
 		.type = TRACEEVAL_TYPE_NUMBER,
 		.name = "Schedule state",
 	},
-	{
-		.type = TRACEEVAL_TYPE_NONE,
-	}
 };
 
 static struct traceeval_type timestamp_vals[] = {
@@ -138,9 +126,6 @@ static struct traceeval_type timestamp_vals[] = {
 		.name = "Timestamp",
 		.flags = TRACEEVAL_FL_TIMESTAMP,
 	},
-	{
-		.type = TRACEEVAL_TYPE_NONE
-	}
 };
 
 static struct traceeval_type delta_vals[] = {
@@ -148,9 +133,6 @@ static struct traceeval_type delta_vals[] = {
 		.type	= TRACEEVAL_TYPE_NUMBER_64,
 		.name	= "delta",
 		.flags = TRACEEVAL_FL_STAT,
-	},
-	{
-		.type	= TRACEEVAL_TYPE_NONE,
 	},
 };
 
