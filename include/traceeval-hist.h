@@ -204,6 +204,8 @@ int traceeval_query_size(struct traceeval *teval, const struct traceeval_data *k
 void traceeval_results_release(struct traceeval *teval,
 			       const struct traceeval_data *results);
 
+size_t traceeval_count(struct traceeval *teval);
+
 #define traceeval_stat(teval, keys, type)				\
 	traceeval_stat_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), type)
 

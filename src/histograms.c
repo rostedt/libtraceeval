@@ -786,6 +786,7 @@ static int create_entry(struct traceeval *teval,
 	entry->vals = new_vals;
 
 	teval->update_counter++;
+	teval->nr_elements++;
 
 	return 0;
 
@@ -1002,9 +1003,24 @@ int traceeval_remove_size(struct traceeval *teval,
 	hash_remove(hist, &entry->hash);
 	free_entry(teval, entry);
 
+	/* update_counter is used to know if there was an update. */
 	teval->update_counter++;
 
+	/* nr_elements keeps track of the number of stored elemnets */
+	teval->nr_elements--;
+
 	return 1;
+}
+
+/**
+ * traceeval_count - Return the number of elements in the traceeval
+ * @teval: The traceeval handle to get the count from
+ *
+ * Returns the number of elements stored by unique keys in the @teval.
+ */
+size_t traceeval_count(struct traceeval *teval)
+{
+	return teval->nr_elements;
 }
 
 /**
@@ -1457,6 +1473,7 @@ int traceeval_iterator_remove(struct traceeval_iterator *iter)
 	/* The entry no longer exists */
 	iter->entries[iter->next - 1] = NULL;
 	teval->update_counter++;
+	teval->nr_elements--;
 
 	return 1;
 }
