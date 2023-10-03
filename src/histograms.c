@@ -155,7 +155,7 @@ static size_t type_alloc(const struct traceeval_type *defs,
 {
 	struct traceeval_type *new_defs = NULL;
 	size_t size;
-	size_t i;
+	ssize_t i;
 
 	*copy = NULL;
 
@@ -192,7 +192,7 @@ fail:
 	else
 		print_err("traceeval_type list missing a name");
 
-	for (; i >=0; i--)
+	for (; i >= 0; i--)
 		free(new_defs[i].name);
 	free(new_defs);
 	return -1;
@@ -815,7 +815,7 @@ static int update_entry(struct traceeval *teval, struct entry *entry,
 	struct traceeval_data *copy = entry->vals;
 	struct traceeval_data old[teval->nr_val_types];
 	size_t size = teval->nr_val_types;
-	size_t i;
+	ssize_t i;
 
 	if (!size)
 		return 0;

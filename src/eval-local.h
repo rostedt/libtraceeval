@@ -66,8 +66,8 @@ struct traceeval {
 	struct traceeval_type		*key_types;
 	struct traceeval_type		*val_types;
 	struct hash_table		*hist;
-	size_t				nr_key_types;
-	size_t				nr_val_types;
+	ssize_t				nr_key_types;
+	ssize_t				nr_val_types;
 	size_t				update_counter;
 	size_t				sizeof_type;
 	size_t				sizeof_data;
