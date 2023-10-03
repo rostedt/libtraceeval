@@ -5,7 +5,7 @@
 #include <getopt.h>
 #include <errno.h>
 #include <trace-cmd.h>
-#include <traceeval-hist.h>
+#include <traceeval.h>
 
 static char *argv0;
 
