@@ -5,7 +5,7 @@
  * Copyright (C) 2023 Google Inc, Steven Rostedt <rostedt@goodmis.org>
  */
 
-#include <traceeval-hist.h>
+#include <traceeval.h>
 
 #include "eval-local.h"
 
