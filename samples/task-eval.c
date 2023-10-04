@@ -631,11 +631,11 @@ static int compare_pdata(struct traceeval *teval_data,
 	}
 
 	/* Get the RUNNING values for both processes */
-	statA = traceeval_stat(teval, keysA, &delta_vals[0]);
+	statA = traceeval_stat(teval, keysA, delta_vals[0].name);
 	if (statA)
 		totalA = traceeval_stat_total(statA);
 
-	statB = traceeval_stat(teval, keysB, &delta_vals[0]);
+	statB = traceeval_stat(teval, keysB, delta_vals[0].name);
 	if (statB)
 		totalB = traceeval_stat_total(statB);
 
@@ -666,7 +666,7 @@ static void display_cpus(struct traceeval *teval)
 		int state = keys[1].number;
 		int cpu = keys[0].number;
 
-		stat = traceeval_iterator_stat(iter, &delta_vals[0]);
+		stat = traceeval_iterator_stat(iter, delta_vals[0].name);
 		if (!stat)
 			continue; // die?
 
@@ -733,7 +733,7 @@ static void display_threads(struct traceeval *teval)
 		int state = keys[1].number;
 		int tid = keys[0].number;
 
-		stat = traceeval_iterator_stat(iter, &delta_vals[0]);
+		stat = traceeval_iterator_stat(iter, delta_vals[0].name);
 		if (!stat)
 			continue; // die?
 
@@ -771,7 +771,7 @@ static void display_process_stats(struct traceeval *teval,
 		TRACEEVAL_SET_NUMBER(keys[1], i);
 
 		delta = 0;
-		stat = traceeval_stat(teval, keys, &delta_vals[0]);
+		stat = traceeval_stat(teval, keys, delta_vals[0].name);
 		if (stat)
 			delta = traceeval_stat_total(stat);
 		display_state_times(i, delta);
@@ -831,7 +831,7 @@ static void display(struct task_data *tdata)
 	while (traceeval_iterator_next(iter, &keys) > 0) {
 		int state = keys[1].number;
 
-		stat = traceeval_iterator_stat(iter, &delta_vals[0]);
+		stat = traceeval_iterator_stat(iter, delta_vals[0].name);
 		if (!stat)
 			continue;
 

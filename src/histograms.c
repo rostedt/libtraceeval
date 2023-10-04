@@ -849,15 +849,34 @@ static int update_entry(struct traceeval *teval, struct entry *entry,
 	return -1;
 }
 
+static struct traceeval_type *find_val_type(struct traceeval *teval, const char *name)
+{
+	struct traceeval_type *type;
+	int i;
+
+	for (i = 0; i < teval->nr_val_types; i++) {
+		type = &teval->val_types[i];
+
+		if (strcmp(type->name, name) == 0)
+			return type;
+	}
+	return NULL;
+}
+
 struct traceeval_stat *traceeval_stat_size(struct traceeval *teval,
 					   const struct traceeval_data *keys,
 					   size_t nr_keys,
-					   struct traceeval_type *type)
+					   const char *val_name)
 {
+	struct traceeval_type *type;
 	struct entry *entry;
 	int ret;
 
 	if (teval->nr_key_types != nr_keys)
+		return NULL;
+
+	type = find_val_type(teval, val_name);
+	if (!type)
 		return NULL;
 
 	if (!is_stat_type(type))
@@ -1116,12 +1135,9 @@ static struct traceeval_type *find_sort_type(struct traceeval *teval,
 	int i;
 
 	/* Check values first, and then keys */
-	for (i = 0; i < teval->nr_val_types; i++) {
-		type = &teval->val_types[i];
-
-		if (strcmp(type->name, name) == 0)
-			return type;
-	}
+	type = find_val_type(teval, name);
+	if (type)
+		return type;
 
 	for (i = 0; i < teval->nr_key_types; i++) {
 		type = &teval->key_types[i];
@@ -1426,15 +1442,20 @@ void traceeval_iterator_results_release(struct traceeval_iterator *iter,
 /**
  * traceeval_iterator_stat - return the stats from the last iterator entry
  * @iter: The iterator to retrieve the stats from
- * @type: The value type to get the stat from
+ * @val_name: The name of the value to get the stat from
  *
  * Returns the stats of the @type for the current iterator entry on success,
  * or NULL if not found or an error occurred.
  */
 struct traceeval_stat *traceeval_iterator_stat(struct traceeval_iterator *iter,
-					       struct traceeval_type *type)
+					       const char *val_name)
 {
+	struct traceeval_type *type;
 	struct entry *entry;
+
+	type = find_val_type(iter->teval, val_name);
+	if (!type)
+		return NULL;
 
 	if (!is_stat_type(type))
 		return NULL;

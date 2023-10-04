@@ -213,13 +213,13 @@ void traceeval_results_release(struct traceeval *teval,
 
 size_t traceeval_count(struct traceeval *teval);
 
-#define traceeval_stat(teval, keys, type)				\
-	traceeval_stat_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), type)
+#define traceeval_stat(teval, keys, val_name)				\
+	traceeval_stat_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), val_name)
 
 struct traceeval_stat *traceeval_stat_size(struct traceeval *teval,
 					   const struct traceeval_data *keys,
 					   size_t nr_keys,
-					   struct traceeval_type *type);
+					   const char *val_name);
 
 unsigned long long traceeval_stat_max(struct traceeval_stat *stat);
 unsigned long long traceeval_stat_min(struct traceeval_stat *stat);
@@ -239,7 +239,7 @@ int traceeval_iterator_query(struct traceeval_iterator *iter,
 void traceeval_iterator_results_release(struct traceeval_iterator *iter,
 					const struct traceeval_data *results);
 struct traceeval_stat *traceeval_iterator_stat(struct traceeval_iterator *iter,
-					       struct traceeval_type *type);
+					       const char *val_name);
 int traceeval_iterator_remove(struct traceeval_iterator *iter);
 
 #endif /* __LIBTRACEEVAL_HIST_H__ */
