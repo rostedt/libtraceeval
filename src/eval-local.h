@@ -47,7 +47,9 @@ struct hash_table {
 
 struct traceeval_stat {
 	unsigned long long	max;
+	unsigned long long	max_ts;
 	unsigned long long	min;
+	unsigned long long	min_ts;
 	unsigned long long	total;
 	unsigned long long	std;
 	size_t			count;
@@ -72,6 +74,7 @@ struct traceeval {
 	size_t				nr_elements;
 	size_t				sizeof_type;
 	size_t				sizeof_data;
+	ssize_t				timestamp_idx;
 };
 
 struct traceeval_iterator {
