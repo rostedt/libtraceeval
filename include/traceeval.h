@@ -17,7 +17,24 @@
 /* Field name/descriptor for number of hits */
 #define TRACEEVAL_VAL_HITS ((const char *)(-1UL))
 
-#define TRACEEVAL_ARRAY_SIZE(data)	(sizeof(data) / sizeof((data)[0]))
+/*
+ * If your compile failed due to the below macro, it is likely you used
+ * a pointer to struct traceeval_data, and not a static array.
+ *
+ * That is:
+ *
+ *    struct traceeval_data *keys;
+ *
+ * and not:
+ *
+ *    struct traceeval_data keys[] = { ... };
+ */
+#define TRACEEVAL_ARRAY_SIZE(data)					\
+	((sizeof(data) / sizeof((data)[0])) +				\
+	(int)(sizeof(struct {						\
+		int:(-!!(__builtin_types_compatible_p(typeof(data),	\
+						      typeof(&((data)[0]))))); \
+			})))
 
 /* Data type distinguishers */
 enum traceeval_data_type {
