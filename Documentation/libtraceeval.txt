@@ -1,0 +1,55 @@
+libtraceeval(3)
+===============
+
+NAME
+----
+libtraceeval - A trace evaluation helper library
+
+SYNOPSIS
+--------
+[verse]
+--
+*#include <traceeval.h>*
+
+--
+
+DESCRIPTION
+-----------
+The libtracefs(3) library provides APIs to access kernel trace file system.
+
+FILES
+-----
+[verse]
+--
+*traceeval.h*
+	Header file to include in order to have access to the library APIs.
+*-ltraceeval*
+	Linker switch to add when building a program that uses the library.
+--
+
+SEE ALSO
+--------
+*libtracecmd*
+
+AUTHOR
+------
+[verse]
+--
+*Steven Rostedt* <rostedt@goodmis.org>
+--
+
+REPORTING BUGS
+--------------
+Report bugs to  <linux-trace-devel@vger.kernel.org>
+
+LICENSE
+-------
+TBD
+
+RESOURCES
+---------
+TBD
+
+COPYING
+-------
+Copyright \(C) 2023 Google, llc.
