@@ -29,12 +29,16 @@
  *
  *    struct traceeval_data keys[] = { ... };
  */
-#define TRACEEVAL_ARRAY_SIZE(data)					\
-	((sizeof(data) / sizeof((data)[0])) +				\
+#define __TRACEEVAL_ARRAY_SIZE(data)					\
+	((sizeof(data) / (sizeof((data)[0]) + 0)) +			\
 	(int)(sizeof(struct {						\
 		int:(-!!(__builtin_types_compatible_p(typeof(data),	\
-						      typeof(&((data)[0]))))); \
+						      typeof(&((data)[0]))) && \
+			 (void *)(data) != NULL));			\
 			})))
+
+#define TRACEEVAL_ARRAY_SIZE(data) \
+	((void *)(data) == NULL ?  0 : __TRACEEVAL_ARRAY_SIZE(data))
 
 /* Data type distinguishers */
 enum traceeval_data_type {
@@ -191,7 +195,7 @@ struct traceeval;
 #define traceeval_init(keys, vals)					\
 	traceeval_init_size(keys, vals,					\
 			    TRACEEVAL_ARRAY_SIZE(keys),			\
-			    (void *)vals == NULL ?  0 : TRACEEVAL_ARRAY_SIZE(vals))
+			    TRACEEVAL_ARRAY_SIZE(vals))
 
 #define traceeval_init_size(keys, vals, nr_keys, nr_vals)		\
 	traceeval_init_data_size(keys, vals, nr_keys, nr_vals,		\
@@ -211,7 +215,7 @@ int traceeval_insert_size(struct traceeval *teval,
 
 #define traceeval_insert(teval, keys, vals)				\
 	traceeval_insert_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), \
-			      vals, (void *)vals == NULL ? 0 : TRACEEVAL_ARRAY_SIZE(vals))
+			      vals, TRACEEVAL_ARRAY_SIZE(vals))
 
 int traceeval_remove_size(struct traceeval *teval,
 			  const struct traceeval_data *keys, size_t nr_keys);
