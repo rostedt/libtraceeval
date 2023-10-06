@@ -41,6 +41,23 @@ Inserting and removing elements from the traceeval:
 			       const struct traceeval_data pass:[**]_results_);
 
 	size_t *traceeval_count*(struct traceeval pass:[*]_teval_);
+
+Functions for iterating over the elements of the libtraceeval:
+	struct traceeval_iterator pass:[*]*traceeval_iterator_get*(struct traceeval pass:[*]_teval_);
+	void *traceeval_iterator_put*(struct traceeval_iterator pass:[*]_iter_);
+	int *traceeval_iterator_sort*(struct traceeval_iterator pass:[*]_iter_, const char pass:[*]_sort_field_,
+			    int _level_, bool _ascending_);
+	int *traceeval_iterator_sort_custom*(struct traceeval_iterator pass:[*]_iter_,
+				   traceeval_cmp_fn _sort_fn_, void pass:[*]_data_);
+	int *traceeval_iterator_next*(struct traceeval_iterator pass:[*]_iter_,
+			    const struct traceeval_data pass:[**]_keys_);
+	int *traceeval_iterator_query*(struct traceeval_iterator pass:[*]_iter_,
+			     const struct traceeval_data pass:[**]_results_);
+	void *traceeval_iterator_results_release*(struct traceeval_iterator pass:[*]_iter_,
+					const struct traceeval_data pass:[*]_results_);
+	struct traceeval_stat pass:[*]*traceeval_iterator_stat*(struct traceeval_iterator pass:[*]_iter_,
+					       struct traceeval_type pass:[*]_type_);
+	int *traceeval_iterator_remove*(struct traceeval_iterator pass:[*]_iter_);
 --
 
 DESCRIPTION
