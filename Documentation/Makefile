@@ -7,9 +7,11 @@ include $(src)/scripts/utils.mk
 # and modified for libtraceeval
 
 MAN3_TXT= \
+	$(wildcard libtraceeval-*.txt) \
 	libtraceeval.txt
 
-MAN1_TEXT=
+MAN1_TEXT= \
+	$(wildcard libtraceeval-*.txt.1)
 
 MAN_TXT = $(MAN3_TXT)
 _MAN_XML=$(patsubst %.txt,%.xml,$(MAN_TXT))

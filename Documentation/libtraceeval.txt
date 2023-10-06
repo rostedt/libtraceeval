@@ -11,6 +11,11 @@ SYNOPSIS
 --
 *#include <traceeval.h>*
 
+Creating and releasing the traceeval resources:
+	struct traceeval pass:[*]*traceeval_init*(struct traceeval_type pass:[*]_keys_, struct traceeval_type pass:[*]_vals_);
+	struct traceeval pass:[*]*traceeval_init_size*(struct traceeval_type pass:[*]_keys_, struct traceeval_type pass:[*]_vals_,
+				       int _nr_keys_, int _nr_vals_);
+	void *traceeval_release*(struct traceeval pass:[*]_teval_);
 --
 
 DESCRIPTION

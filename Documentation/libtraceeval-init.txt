@@ -1,0 +1,395 @@
+libtraceeval(3)
+===============
+
+NAME
+----
+traceeval_init, traceeval_init_size, traceeval_release - Create a trace evaluation helper mechanism.
+
+SYNOPSIS
+--------
+[verse]
+--
+*#include <traceeval.h>*
+
+struct traceeval pass:[*]*traceeval_init*(struct traceeval_type pass:[*]_keys_, struct traceeval_type pass:[*]_vals_);
+struct traceeval pass:[*]*traceeval_init_size*(struct traceeval_type pass:[*]_keys_, struct traceeval_type pass:[*]_vals_,
+				       int _nr_keys_, int _nr_vals_);
+void *traceeval_release*(struct traceeval pass:[*]_teval_);
+--
+
+DESCRIPTION
+-----------
+The traceeval utility is to help simplify analysis of tracing data by doing
+most of the tedious work that is usually done. For example, if one had a trace
+of the all the times all tasks were woken up and then later the time for those
+tasks when they were  scheduled on the CPU, the traceeval tooling would allow
+the program to record the time of the wake up at the wake up event, then on the
+scheduling event the tool could query for the last event that hold where the
+given task woke up, take the delta from the current timestamp, subtract it from
+the wake up timestamp, and then record the delta (wake up latency) into anther
+traceeval instance. At the end of the program, the traceeval instance can be
+iterated over and report the maximum and minimum deltas (with the timestamps
+where they occurred), along with the total of all deltas and the number of
+times it work up.
+
+The *traceeval_init()* function will take a static array of _keys_ to use as
+how to query for the elements in the traceeval. It also takes an option static
+array of _vals_ that are associated to each of the elements in the traceveal.
+The _keys_ are mandatory as they are used to find and differentiate the
+elements in the traceeval.
+
+Both the _keys_ and the _vals_ are defined by the *struct traceeval_data*
+structure.
+
+[verse]
+--
+struct traceeval_type {
+	char				pass:[*]name;
+	enum traceeval_data_type	type;
+	size_t				flags;
+	size_t				index;
+	size_t				id;
+	traceeval_data_release_fn	release;
+	traceeval_data_cmp_fn		cmp;
+	traceeval_data_copy_fn		copy;
+	traceeval_data_hash_fn		hash;
+};
+--
+
+The _name_ is the name of the field. For example it could be "PID" or "Timestamp".
+
+The _type_ is an enum that defines what the content of this field will be. See *TYPE ENUMS* below.
+
+The _flags_ defines characteristics of the field. See *FLAGS* below.
+
+The _index_ is the index into the array passed to *traceeval_init()*. The user does not need
+to updated this. This will be updated by *traceeval_init()*, so the array passed in must not be
+a constant. The index is updated so that the type can be used by other functions where a lookup
+into the internal array can be quicker than searching for matching _name_s.
+
+The _id_ is free for the application to define.
+
+The next fields are function pointers:
+
+The _release_() function is called when the data is being replaced or removed from the trace_eval.
+This will be called by any type, but it comes in handy with the _POINTER_ type, if the pointer
+needs to clean up anything allocated before being inserted.
+
+The _cmp_() function pointer is required for the _POINTER_ type, but also may be used
+to override any of the other types. It is used for sorting of the data in the traceeval for
+iterating over the elements.
+
+The _copy_() function pointer is required for the _POINTER_ type, but also may be used
+to override any of the other types. This is used to copy a field when updating an existing
+element.
+
+The _hash_() function pointer is required for the _POINTER_ key type, but may also be used
+to override the default of other types. The _hash_() function is used to hash the field
+of the element for look ups.
+
+*TYPE ENUMS*:
+
+[verse]
+--
+enum traceeval_data_type {
+	TRACEEVAL_TYPE_NONE,
+	TRACEEVAL_TYPE_NUMBER_8,
+	TRACEEVAL_TYPE_NUMBER_16,
+	TRACEEVAL_TYPE_NUMBER_32,
+	TRACEEVAL_TYPE_NUMBER_64,
+	TRACEEVAL_TYPE_NUMBER,
+	TRACEEVAL_TYPE_POINTER,
+	TRACEEVAL_TYPE_STRING,
+};
+--
+
+Where _NONE_ is just a place holder.
+
+_NUMBER_8_ means the type is just 8 bits in size (for example, *char*).
+
+_NUMBER_16_ means the type is 16 bits in size (*short*).
+
+_NUMBER_32_ means the type is 32 bits in size (*int*)
+
+_NUMBER_64_ means the type is 64 bits in size (*unsigned long long*).
+
+_NUMBER_ means the type is of the natural word length (*size_t*).
+
+_POINTER_ means that the type points to something.
+
+_STRING_ meants that the type is a character array with an nul ('\0') terminating byte.
+
+
+*FLAGS*:
+
+[verse]
+--
+enum traceeval_flags {
+	TRACEEVAL_FL_KEY		= (1 << 0),
+	TRACEEVAL_FL_VALUE		= (1 << 1),
+	TRACEEVAL_FL_SIGNED		= (1 << 2),
+	TRACEEVAL_FL_TIMESTAMP		= (1 << 3),
+	TRACEEVAL_FL_STAT		= (1 << 4),
+};
+--
+
+The _KEY_ and _VALUE_ flags will be set by *traceeval_init()* for the types that associate
+to _keys_ or _vals_, and does not need to be set by the user.
+
+The _SIGNED_ flag is for the user to denote that the type is signed. This is useful for
+the compare operations in the sorts.
+
+The _TIMESTAMP_ flag denotes that the field is a timestamp. These have some meaning in
+which the statitics will record this field if defined. Note the TIMESTAMP and STAT flags
+are mutually exclusive. The _TIMESTAMP_ flag is ignored for _KEYS_.
+
+The _STAT_ flag denotes that the field should have its statistics recorded (maximum, minimum, etc).
+This is only valid for one of the _NUMBER_pass:[*]_ types.
+
+
+As the *traceeval_init()* requires that the passed in _keys_ and _vals_ must be a static
+array, if an dynamic array needs to be used, then *traceeval_init_size()* can be used.
+This function takes in two new parameters, _nr_keys_ and _nr_vals_. These must mach the
+size of the _keys_ and _vals_ arrays respectively. The reason that the *traceeval_init()*
+requires static size arrays is because it is really just a macro that calles
+*traceeval_init_size()*.
+
+[verse]
+--
+#define TRACEEVAL_ARRAY_SIZE(data)	(sizeof(data) / sizeof(data[0]))
+#define traceeval_init(keys, vals)					\
+	traceeval_init_size(keys, vals,					\
+			    TRACEEVAL_ARRAY_SIZE(keys),			\
+			    (void *)vals == NULL ?  0 : TRACEEVAL_ARRAY_SIZE(vals))
+--
+
+The *traceeval_release()* function releases and frees all the resources of
+a traceeval returned by *traceeval_init()* and *traceeval_init_size()*.
+
+RETURN VALUE
+------------
+The *traceeval_init()* and *traceeval_init_size()* both return a descriptor
+to the traceeval or NULL on error.
+
+EXAMPLE
+-------
+[source,c]
+--
+#include <signal.h>
+#include <errno.h>
+#include <tracefs.h>
+#include <traceeval.h>
+
+static bool done;
+
+static void pdie(const char *str)
+{
+	perror(str);
+	exit(-1);
+
+}
+
+struct traceeval_type sched_keys[] = {
+	{
+		.type = TRACEEVAL_TYPE_STRING,
+		.name = "COMM",
+	},
+	{
+		.type = TRACEEVAL_TYPE_NUMBER,
+		.name = "PID",
+	},
+	{
+		.type = TRACEEVAL_TYPE_NUMBER,
+		.name = "State",
+	},
+};
+
+
+struct traceeval_type sched_vals[] = {
+	{
+		.type = TRACEEVAL_TYPE_NUMBER_64,
+		.name = "Hitcount",
+	},
+};
+
+static int sched_callback(struct tep_event *event, struct tep_record *record,
+			  int cpu, void *data)
+{
+	static struct tep_format_field *pid_field;
+	static struct tep_format_field *comm_field;
+	static struct tep_format_field *state_field;
+	const struct traceeval_data *results;
+	struct traceeval_data keys[3];
+	struct traceeval_data vals[1];
+	struct traceeval *teval = data;
+	unsigned long long hits = 0;
+	unsigned long long val;
+	char *comm;
+	int state;
+	int pid;
+	int ret;
+
+	if (!pid_field) {
+		pid_field = tep_find_field(event, "prev_pid");
+		comm_field = tep_find_field(event, "prev_comm");
+		state_field = tep_find_field(event, "prev_state");
+
+		if (!pid_field || !comm_field || !state_field)
+			pdie("Could not find sched_switch required fields");
+	}
+
+	tep_read_number_field(pid_field, record->data, &val);
+	pid = val;
+
+	tep_read_number_field(state_field, record->data, &val);
+	state = val;
+
+	comm = record->data + comm_field->offset;
+
+	TRACEEVAL_SET_STRING(keys[0], comm);
+	TRACEEVAL_SET_NUMBER(keys[1], pid);
+	TRACEEVAL_SET_NUMBER(keys[2], state);
+
+	ret = traceeval_query(teval, keys, &results);
+	if (ret < 0)
+		pdie("Failed to query keys");
+
+	if (ret) {
+		hits = results[0].number_64;
+		traceeval_results_release(teval, results);
+	}
+
+	hits++;
+
+	TRACEEVAL_SET_NUMBER_64(vals[0], hits);
+
+	traceeval_insert(teval, keys, vals);
+
+	return 0;
+}
+
+static char *get_state(int state)
+{
+	switch (state & 7) {
+	case 0:
+		return "R";
+	case 1:
+		return "S";
+	case 2:
+		return "D";
+	}
+	return "X";
+}
+
+static void display_teval(struct traceeval *teval)
+{
+	struct traceeval_iterator *iter = traceeval_iterator_get(teval);
+	const struct traceeval_data *results;
+	const struct traceeval_data *keys;
+
+	/* Sort comms first. */
+	traceeval_iterator_sort(iter, sched_keys[0].name, 0, true);
+	/* Sort pids next */
+	traceeval_iterator_sort(iter, sched_keys[1].name, 1, true);
+	/* Sort state last */
+	traceeval_iterator_sort(iter, sched_keys[2].name, 2, true);
+
+	while (traceeval_iterator_next(iter, &keys) > 0) {
+		traceeval_iterator_query(iter, &results);
+
+		printf("%s [%ld] %s: %lld\n",
+		       keys[0].string, keys[1].number, get_state(keys[2].number),
+		       results[0].number_64);
+	}
+	traceeval_iterator_put(iter);
+}
+
+static void stop(int s)
+{
+	done = true;
+}
+
+int main (int argc, char **argv)
+{
+	struct tracefs_instance *instance;
+	struct tep_handle *tep;
+	const char *systems[] = { "sched", NULL };
+	struct traceeval *teval;
+	bool finished = false;
+	int ret;
+
+	teval = traceeval_init(sched_keys, sched_vals);
+	if (!teval)
+		pdie("Creating traceeval");
+
+	instance = tracefs_instance_create("sched-counter");
+	if (!instance)
+		pdie("Could not create instance");
+
+	tep = tracefs_local_events_system(NULL, systems);
+	if (!tep)
+		pdie("Could not read system events");
+
+	tracefs_trace_off(instance);
+
+	tracefs_event_enable(instance, "sched", "sched_switch");
+
+	ret = tracefs_follow_event(tep, instance, "sched", "sched_switch",
+				   sched_callback, teval);
+	if (ret < 0)
+		pdie("Could not follow sched event");
+
+	signal(SIGTERM, stop);
+	signal(SIGINT, stop);
+
+	printf("Hit Ctrl^C to stop\n");
+
+	tracefs_trace_on(instance);
+	do {
+		if (done) {
+			tracefs_trace_off(instance);
+			finished = true;
+		}
+
+		tracefs_iterate_raw_events(tep, instance, NULL, 0, NULL, NULL);
+
+	} while (!finished);
+
+	tracefs_event_disable(instance, NULL, NULL);
+	tracefs_instance_destroy(instance);
+	tracefs_instance_free(instance);
+
+	display_teval(teval);
+
+	return 0;
+}
+--
+
+FILES
+-----
+[verse]
+--
+*traceval.h*
+	Header file to include in order to have access to the library APIs.
+*-ltraceeval*
+	Linker switch to add when building a program that uses the library.
+--
+
+SEE ALSO
+--------
+*libtraceeval*(3)
+
+AUTHOR
+------
+[verse]
+--
+*Steven Rostedt* <rostedt@goodmis.org>, author of *libtraceeval*.
+--
+REPORTING BUGS
+--------------
+Report bugs to  <linux-trace-devel@vger.kernel.org>
+
+LICENSE
+-------
+libtraceeval is licensed under MIT.
+
