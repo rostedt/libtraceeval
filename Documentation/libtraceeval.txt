@@ -16,6 +16,31 @@ Creating and releasing the traceeval resources:
 	struct traceeval pass:[*]*traceeval_init_size*(struct traceeval_type pass:[*]_keys_, struct traceeval_type pass:[*]_vals_,
 				       int _nr_keys_, int _nr_vals_);
 	void *traceeval_release*(struct traceeval pass:[*]_teval_);
+
+Inserting and removing elements from the traceeval:
+	int *traceeval_insert*(struct traceeval pass:[*]_teval_,
+			  const struct traceeval_data pass:[*]_keys_,
+			  const struct traceeval_data pass:[*]_vals_);
+
+	int *traceeval_insert_size*(struct traceeval pass:[*]_teval_,
+			  const struct traceeval_data pass:[*]_keys_, size_t _nr_keys_,
+			  const struct traceeval_data pass:[*]_vals_, size_t _nr_vals_);
+
+	int *traceeval_remove*(struct traceeval pass:[*]_teval_, const struct traceeval_data pass:[*]_keys_);
+
+	int *traceeval_remove_size*(struct traceeval pass:[*]_teval_,
+			  const struct traceeval_data pass:[*]_keys_, size_t _nr_keys_);
+
+	int *traceeval_query*(struct traceeval pass:[*]_teval_, const struct traceeval_data pass:[*]_keys_,
+			 const struct traceeval_data pass:[**]_results_);
+
+	int *traceeval_query_size*(struct traceeval pass:[*]_teval_, const struct traceeval_data pass:[*]_keys_,
+			 size_t _nr_keys_, const struct traceeval_data pass:[**]_results_);
+
+	void *traceeval_results_release*(struct traceeval pass:[*]_teval_,
+			       const struct traceeval_data pass:[**]_results_);
+
+	size_t *traceeval_count*(struct traceeval pass:[*]_teval_);
 --
 
 DESCRIPTION
