@@ -4,6 +4,7 @@ include $(src)/scripts/utils.mk
 
 TARGETS :=
 TARGETS += task-eval
+TARGETS += wake-lat
 
 sdir := $(obj)/bin
 
