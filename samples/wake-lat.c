@@ -36,15 +36,9 @@ struct traceeval_type sched_keys[] = {
 
 struct traceeval_type sched_vals[] = {
 	{
-		.name		= "timestamp",
-		.flags		= TRACEEVAL_FL_TIMESTAMP,
-		.type		= TRACEEVAL_TYPE_NUMBER_64,
-	},
-	{
 		.name		= "delta",
-		.flags		= TRACEEVAL_FL_STAT,
-		.type		= TRACEEVAL_TYPE_NUMBER_64,
-	}
+		.type		= TRACEEVAL_TYPE_DELTA,
+	},
 };
 
 static int wakeup_callback(struct tracecmd_input *handle, struct tep_event *event,
@@ -82,7 +76,7 @@ static int sched_callback(struct tracecmd_input *handle, struct tep_event *event
 	long pid;
 	struct traceeval_data wakeup_keys[1];
 	struct traceeval_data keys[2];
-	struct traceeval_data vals[2];
+	struct traceeval_data vals[1];
 	const struct traceeval_data *results;
 	const char *comm;
 
@@ -106,8 +100,7 @@ static int sched_callback(struct tracecmd_input *handle, struct tep_event *event
 	TRACEEVAL_SET_CSTRING(keys[0],comm);
 	TRACEEVAL_SET_NUMBER(keys[1], pid);
 
-	TRACEEVAL_SET_NUMBER_64(vals[0], record->ts);
-	TRACEEVAL_SET_NUMBER_64(vals[1], delta);
+	TRACEEVAL_SET_DELTA(vals[0], delta, record->ts);
 
 	traceeval_insert(data->teval_sched, keys, vals);
 
@@ -125,7 +118,7 @@ static void show_latency(struct data *data)
 		unsigned long long val;
 		unsigned long long ts;
 
-		stat = traceeval_iterator_stat(iter, sched_vals[1].name);
+		stat = traceeval_iterator_stat(iter, sched_vals[0].name);
 		if (!stat)
 			continue;
 

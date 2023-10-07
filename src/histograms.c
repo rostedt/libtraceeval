@@ -74,6 +74,9 @@ static int compare_traceeval_data(struct traceeval *teval,
 	case TRACEEVAL_TYPE_NUMBER_8:
 		compare_numbers_return(orig->number_8, copy->number_8);
 
+	case TRACEEVAL_TYPE_DELTA:
+		compare_numbers_return(orig->delta.delta, copy->delta.delta);
+
 	default:
 		print_err("%d is an invalid enum traceeval_data_type member",
 				type->type);
@@ -244,6 +247,8 @@ static int check_vals(struct traceeval *teval, struct traceeval_type *vals, int 
 			ts_found = true;
 			teval->timestamp_idx = i;
 		}
+		if (vals[i].type == TRACEEVAL_TYPE_DELTA)
+			vals[i].flags |= TRACEEVAL_FL_STAT;
 		vals[i].index = i;
 	}
 	if (!ts_found)
@@ -473,6 +478,9 @@ static unsigned make_hash(struct traceeval *teval, const struct traceeval_data *
 		case TRACEEVAL_TYPE_NUMBER:
 			val = keys[i].number_64;
 			break;
+		case TRACEEVAL_TYPE_DELTA:
+			val = keys[i].delta.delta;
+			break;
 		case TRACEEVAL_TYPE_STRING:
 			val = hash_string(keys[i].cstring);
 			break;
@@ -532,12 +540,11 @@ static bool is_stat_type(struct traceeval_type *type)
 	    !(type->flags & TRACEEVAL_FL_STAT))
 		return false;
 
+	if (type->type && type->type <= TRACEEVAL_TYPE_NUMBER)
+		return true;
+
 	switch (type->type) {
-	case TRACEEVAL_TYPE_NUMBER:
-	case TRACEEVAL_TYPE_NUMBER_64:
-	case TRACEEVAL_TYPE_NUMBER_32:
-	case TRACEEVAL_TYPE_NUMBER_16:
-	case TRACEEVAL_TYPE_NUMBER_8:
+	case TRACEEVAL_TYPE_DELTA:
 		return true;
 	default:
 		return false;
@@ -607,9 +614,20 @@ static int copy_traceeval_data(struct traceeval_type *type,
 		if (!dst->string)
 			return -1;
 		return 0;
+
+	case TRACEEVAL_TYPE_DELTA:
+		if (ts == (unsigned long long)-1)
+			return 0;
+
+		val = dst->delta.delta;
+		ts = dst->delta.timestamp;
+		break;
 	default:
 		return 0;
 	}
+
+	if (ts == (unsigned long long)-1)
+		return 0;
 
 	if (!stat || !is_stat_type(type))
 		return 0;
@@ -817,7 +835,7 @@ static int create_entry(struct traceeval *teval,
 
 	/* copy keys */
 	if (dup_traceeval_data_set(teval->nr_key_types, teval->key_types,
-				   NULL, keys, &new_keys, 0) == -1)
+				   NULL, keys, &new_keys, -1) == -1)
 		goto fail_stats;
 
 	/* copy vals */

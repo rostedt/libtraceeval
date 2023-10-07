@@ -130,9 +130,8 @@ static struct traceeval_type timestamp_vals[] = {
 
 static struct traceeval_type delta_vals[] = {
 	{
-		.type	= TRACEEVAL_TYPE_NUMBER_64,
+		.type	= TRACEEVAL_TYPE_DELTA,
 		.name	= "delta",
-		.flags = TRACEEVAL_FL_STAT,
 	},
 };
 
@@ -199,7 +198,7 @@ static void update_process(struct task_data *tdata, const char *comm,
 		if (!results[0].number_64)
 			break;
 
-		TRACEEVAL_SET_NUMBER_64(new_vals[0], ts - results[0].number_64);
+		TRACEEVAL_SET_DELTA(new_vals[0], ts - results[0].number_64, ts);
 
 		ret = traceeval_insert(tdata->teval_processes.stop, keys, new_vals);
 		if (ret < 0)
@@ -314,7 +313,7 @@ static void update_cpu(struct teval_pair *teval_pair, int cpu,
 		if (!results[0].number_64)
 			break;
 
-		TRACEEVAL_SET_NUMBER_64(new_vals[0], ts - results[0].number_64);
+		TRACEEVAL_SET_DELTA(new_vals[0], ts - results[0].number_64, ts);
 
 		ret = traceeval_insert(teval_pair->stop, keys, new_vals);
 		if (ret < 0)
@@ -373,7 +372,7 @@ static void update_thread(struct process_data *pdata, int tid,
 		if (ret == 0)
 			return;
 
-		TRACEEVAL_SET_NUMBER_64(new_vals[0], ts - results[0].number_64);
+		TRACEEVAL_SET_DELTA(new_vals[0], ts - results[0].number_64, ts);
 
 		ret = traceeval_insert(pdata->teval_threads.stop, keys, new_vals);
 		traceeval_results_release(pdata->teval_threads.start, results);

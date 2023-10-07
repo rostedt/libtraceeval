@@ -50,6 +50,7 @@ enum traceeval_data_type {
 	TRACEEVAL_TYPE_NUMBER,
 	TRACEEVAL_TYPE_POINTER,
 	TRACEEVAL_TYPE_STRING,
+	TRACEEVAL_TYPE_DELTA,
 };
 
 /* Statistics specification flags */
@@ -59,6 +60,11 @@ enum traceeval_flags {
 	TRACEEVAL_FL_SIGNED		= (1 << 2),
 	TRACEEVAL_FL_TIMESTAMP		= (1 << 3),
 	TRACEEVAL_FL_STAT		= (1 << 4),
+};
+
+struct traceeval_data_delta {
+	unsigned long long			delta;
+	unsigned long long			timestamp;
 };
 
 /*
@@ -76,6 +82,7 @@ struct traceeval_data {
 		unsigned int			number_32;
 		unsigned short			number_16;
 		unsigned char			number_8;
+		struct traceeval_data_delta	delta;
 	};
 };
 
@@ -90,6 +97,9 @@ struct traceeval_data {
 #define DEFINE_TRACEEVAL_STRING(data)	   __TRACEEVAL_DATA(STRING, string, data)
 #define DEFINE_TRACEEVAL_CSTRING(data)	   __TRACEEVAL_DATA(STRING, cstring, data)
 #define DEFINE_TRACEEVAL_POINTER(data)	   __TRACEEVAL_DATA(POINTER, pointer, data)
+
+#define DEFINE_TRACEEVAL_DELTA(data, ts) \
+	__TRACEEVAL_DATA(DELTA, { .delta = data, .timestamp = ts })
 
 #define __TRACEEVAL_SET(data, data_type, member, val)		\
 	do {							\
@@ -119,6 +129,13 @@ struct traceeval_data {
 #define TRACEEVAL_SET_STRING(data, val)	     __TRACEEVAL_SET_STR(data, STRING, string, val)
 #define TRACEEVAL_SET_CSTRING(data, val)     __TRACEEVAL_SET_STR(data, STRING, cstring, val)
 #define TRACEEVAL_SET_POINTER(data, val)     __TRACEEVAL_SET(data, POINTER, pointer, val)
+
+#define TRACEEVAL_SET_DELTA(data, val_delta, val_ts)		\
+	do {							\
+		(data).type = TRACEEVAL_TYPE_DELTA;		\
+		(data).delta.delta = (val_delta);		\
+		(data).delta.timestamp = (val_ts);		\
+	} while (0)
 
 struct traceeval_type;
 struct traceeval;
