@@ -84,6 +84,7 @@ static int sched_callback(struct tracecmd_input *handle, struct tep_event *event
 	struct traceeval_data keys[2];
 	struct traceeval_data vals[2];
 	const struct traceeval_data *results;
+	const char *comm;
 
 	if (!next_pid_field) {
 		next_pid_field = tep_find_field(event, "next_pid");
@@ -101,7 +102,8 @@ static int sched_callback(struct tracecmd_input *handle, struct tep_event *event
 	delta = record->ts - results[0].number_64;
 	traceeval_results_release(data->teval_wakeup, results);
 
-	TRACEEVAL_SET_CSTRING(keys[0], record->data + next_comm_field->offset);
+	comm = (char *)record->data + next_comm_field->offset;
+	TRACEEVAL_SET_CSTRING(keys[0],comm);
 	TRACEEVAL_SET_NUMBER(keys[1], pid);
 
 	TRACEEVAL_SET_NUMBER_64(vals[0], record->ts);
