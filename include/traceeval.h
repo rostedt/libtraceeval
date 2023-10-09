@@ -265,6 +265,59 @@ void traceeval_results_release(struct traceeval *teval,
 
 size_t traceeval_count(struct traceeval *teval);
 
+#define traceeval_delta_create(teval, keys, vals)			\
+	traceeval_delta_create_size(teval, keys, vals,			\
+				  TRACEEVAL_ARRAY_SIZE(keys),		\
+				  TRACEEVAL_ARRAY_SIZE(vals))
+
+#define traceeval_delta_create_size(teval, keys, vals, nr_keys, nr_vals) \
+	traceeval_delta_create_data_size(teval, keys, vals, nr_keys, nr_vals, \
+				       sizeof(struct traceeval_type),	\
+				       sizeof(struct traceeval_data))
+
+int traceeval_delta_create_data_size(struct traceeval *teval,
+				     struct traceeval_type *keys,
+				     struct traceeval_type *vals,
+				     size_t nr_keys, size_t nr_vals,
+				     size_t sizeof_type,
+				     size_t sizeof_data);
+
+int traceeval_delta_start_size(struct traceeval *teval,
+			       const struct traceeval_data *keys, size_t nr_keys,
+			       const struct traceeval_data *vals, size_t nr_vals,
+			       unsigned long long timestamp);
+
+#define traceeval_delta_start(teval, keys, vals, timestamp)		\
+	traceeval_delta_start_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), \
+				   vals, TRACEEVAL_ARRAY_SIZE(vals), timestamp)
+
+int traceeval_delta_query_size(struct traceeval *teval,
+			       const struct traceeval_data *keys,
+			       size_t nr_keys, const struct traceeval_data **results);
+
+#define traceeval_delta_query(teval, keys, results)			\
+	traceeval_delta_query_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), results)
+
+int traceeval_delta_continue_size(struct traceeval *teval,
+				  const struct traceeval_data *keys, size_t nr_keys,
+				  const struct traceeval_data *vals, size_t nr_vals,
+				  unsigned long long timestamp);
+
+#define traceeval_delta_continue(teval, keys, vals, timestamp)		\
+	traceeval_delta_continue_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), \
+				      vals, TRACEEVAL_ARRAY_SIZE(vals), timestamp)
+
+int traceeval_delta_stop_size(struct traceeval *teval,
+			      const struct traceeval_data *keys, size_t nr_keys,
+			      const struct traceeval_data **results,
+			      unsigned long long timestamp,
+			      unsigned long long *delta,
+			      unsigned long long *start_timestamp);
+
+#define traceeval_delta_stop(teval, keys, results, timestamp, delta, start_ts)		\
+	traceeval_delta_stop_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), \
+				  results, timestamp, delta, start_ts)
+
 #define traceeval_stat(teval, keys, val_name)				\
 	traceeval_stat_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), val_name)
 

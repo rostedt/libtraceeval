@@ -498,8 +498,8 @@ static unsigned make_hash(struct traceeval *teval, const struct traceeval_data *
  *
  * Returns 1 on success, 0 if no match found, -1 on error.
  */
-static int get_entry(struct traceeval *teval, const struct traceeval_data *keys,
-		     struct entry **result)
+__hidden int _teval_get_entry(struct traceeval *teval, const struct traceeval_data *keys,
+			      struct entry **result)
 {
 	struct hash_table *hist = teval->hist;
 	struct entry *entry = NULL;
@@ -531,6 +531,43 @@ static int get_entry(struct traceeval *teval, const struct traceeval_data *keys,
 	if (check > 0)
 		*result = entry;
 	return check;
+}
+
+__hidden void _teval_update_stat(struct traceeval_type *type,
+				 struct traceeval_stat *stat,
+				 unsigned long long val,
+				 unsigned long long ts)
+{
+	if (!stat->count++) {
+		stat->max = val;
+		stat->min = val;
+		stat->max_ts = ts;
+		stat->min_ts = ts;
+		stat->total = val;
+		return;
+	}
+
+	if (type->flags & TRACEEVAL_FL_SIGNED) {
+		if ((long long)stat->max < (long long)val) {
+			stat->max = val;
+			stat->max_ts = ts;
+		}
+		if ((long long)stat->min > (long long)val) {
+			stat->min = val;
+			stat->min_ts = ts;
+		}
+		stat->total += (long long)val;
+	} else {
+		if (stat->max < val) {
+			stat->max_ts = ts;
+			stat->max = val;
+		}
+		if (stat->min > val) {
+			stat->min = val;
+			stat->min_ts = ts;
+		}
+		stat->total += val;
+	}
 }
 
 static bool is_stat_type(struct traceeval_type *type)
@@ -632,36 +669,7 @@ static int copy_traceeval_data(struct traceeval_type *type,
 	if (!stat || !is_stat_type(type))
 		return 0;
 
-	if (!stat->count++) {
-		stat->max = val;
-		stat->min = val;
-		stat->max_ts = ts;
-		stat->min_ts = ts;
-		stat->total = val;
-		return 0;
-	}
-
-	if (type->flags & TRACEEVAL_FL_SIGNED) {
-		if ((long long)stat->max < (long long)val) {
-			stat->max = val;
-			stat->max_ts = ts;
-		}
-		if ((long long)stat->min > (long long)val) {
-			stat->min = val;
-			stat->min_ts = ts;
-		}
-		stat->total += (long long)val;
-	} else {
-		if (stat->max < val) {
-			stat->max_ts = ts;
-			stat->max = val;
-		}
-		if (stat->min > val) {
-			stat->min = val;
-			stat->min_ts = ts;
-		}
-		stat->total += val;
-	}
+	_teval_update_stat(type, stat, val, ts);
 
 	return 0;
 }
@@ -757,7 +765,7 @@ int traceeval_query_size(struct traceeval *teval, const struct traceeval_data *k
 		return -1;
 
 	/* find key and copy its corresponding value pair */
-	if ((check = get_entry(teval, keys, &entry)) < 1)
+	if ((check = _teval_get_entry(teval, keys, &entry)) < 1)
 		return check;
 
 	*results = entry->vals;
@@ -812,7 +820,7 @@ static unsigned long long get_timestamp(struct traceeval *teval,
 /*
  * Create a new entry in @teval with respect to @keys and @vals.
  *
- * Returns 0 on success, -1 on error.
+ * Returns 0 on success, -1 on error
  */
 static int create_entry(struct traceeval *teval,
 			const struct traceeval_data *keys,
@@ -943,7 +951,7 @@ struct traceeval_stat *traceeval_stat_size(struct traceeval *teval,
 	if (!is_stat_type(type))
 		return NULL;
 
-	ret = get_entry(teval, keys, &entry);
+	ret = _teval_get_entry(teval, keys, &entry);
 	if (ret <= 0)
 		return NULL;
 
@@ -1026,6 +1034,32 @@ unsigned long long traceeval_stat_count(struct traceeval_stat *stat)
 	return stat->count;
 }
 
+__hidden int _teval_insert(struct traceeval *teval,
+			   const struct traceeval_data *keys, size_t nr_keys,
+			   const struct traceeval_data *vals, size_t nr_vals)
+{
+	struct entry *entry;
+	int check;
+	int i;
+
+	entry = NULL;
+	check = _teval_get_entry(teval, keys, &entry);
+
+	for (i = 0; i < nr_vals; i++) {
+		if (vals[i].type != teval->val_types[i].type)
+			return -1;
+	}
+
+	if (check == -1)
+		return check;
+
+	/* insert key-value pair */
+	if (check == 0)
+		return create_entry(teval, keys, vals);
+	else
+		return update_entry(teval, entry, vals);
+}
+
 /*
  * traceeval_insert - insert an item into the traceeval descriptor
  * @teval: The descriptor to insert into
@@ -1061,29 +1095,10 @@ int traceeval_insert_size(struct traceeval *teval,
 			  const struct traceeval_data *keys, size_t nr_keys,
 			  const struct traceeval_data *vals, size_t nr_vals)
 {
-	struct entry *entry;
-	int check;
-	int i;
-
 	if (nr_keys != teval->nr_key_types || nr_vals != teval->nr_val_types)
 		return -1;
 
-	entry = NULL;
-	check = get_entry(teval, keys, &entry);
-
-	for (i = 0; i < teval->nr_val_types; i++) {
-		if (vals[i].type != teval->val_types[i].type)
-			return -1;
-	}
-
-	if (check == -1)
-		return check;
-
-	/* insert key-value pair */
-	if (check == 0)
-		return create_entry(teval, keys, vals);
-	else
-		return update_entry(teval, entry, vals);
+	return _teval_insert(teval, keys, nr_keys, vals, nr_vals);
 }
 
 /**
@@ -1110,7 +1125,7 @@ int traceeval_remove_size(struct traceeval *teval,
 		return -1;
 
 	entry = NULL;
-	check = get_entry(teval, keys, &entry);
+	check = _teval_get_entry(teval, keys, &entry);
 
 	if (check < 1)
 		return check;

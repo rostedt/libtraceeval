@@ -63,11 +63,19 @@ struct entry {
 	struct traceeval_stat	*val_stats;
 };
 
+enum {
+	TEVAL_FL_DELTA		= (1 << 0),
+};
+
+struct traceeval_delta;
+
 /* Histogram */
 struct traceeval {
 	struct traceeval_type		*key_types;
 	struct traceeval_type		*val_types;
 	struct hash_table		*hist;
+	struct traceeval_delta		*tdelta;
+	unsigned int			flags;
 	ssize_t				nr_key_types;
 	ssize_t				nr_val_types;
 	size_t				update_counter;
@@ -89,6 +97,12 @@ struct traceeval_iterator {
 	bool				needs_sort;
 };
 
+extern int _teval_get_entry(struct traceeval *teval, const struct traceeval_data *keys,
+			    struct entry **result);
+
+extern void _teval_update_stat(struct traceeval_type *type, struct traceeval_stat *stat,
+			       unsigned long long val, unsigned long long ts);
+
 extern struct hash_table *hash_alloc(void);
 extern void hash_free(struct hash_table *hash);
 extern void hash_add(struct hash_table *hash, struct hash_item *item, unsigned key);
@@ -99,6 +113,8 @@ extern struct hash_item *hash_iter_next(struct hash_iter *iter);
 
 extern struct hash_iter *hash_iter_bucket(struct hash_table *hash, unsigned key);
 extern struct hash_item *hash_iter_bucket_next(struct hash_iter *iter);
+
+extern void __delta_release(struct traceeval_delta *tdelta);
 
 static inline size_t hash_nr_items(struct hash_table *hash)
 {
@@ -116,6 +132,10 @@ static inline unsigned long long hash_string(const char *str)
 
 	return key;
 }
+
+int _teval_insert(struct traceeval *teval,
+		  const struct traceeval_data *keys, size_t nr_keys,
+		  const struct traceeval_data *vals, size_t nr_vals);
 
  /*
  * This is a quick hashing function adapted from Donald E. Knuth's 32

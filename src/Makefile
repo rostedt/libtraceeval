@@ -4,6 +4,7 @@ include $(src)/scripts/utils.mk
 
 OBJS =
 OBJS += histograms.o
+OBJS += delta.o
 OBJS += hash.o
 
 OBJS := $(OBJS:%.o=$(bdir)/%.o)
