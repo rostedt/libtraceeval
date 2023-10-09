@@ -105,6 +105,17 @@ static struct traceeval_type process_delta_keys[] = {
 	},
 };
 
+static struct traceeval_type process_delta_vals[] = {
+	{
+		.type = TRACEEVAL_TYPE_NUMBER,
+		.name = "Schedule state"
+	},
+	{
+		.type = TRACEEVAL_TYPE_STRING,
+		.name = "COMM",
+	},
+};
+
 static struct traceeval_type delta_vals[] = {
 	{
 		.type = TRACEEVAL_TYPE_NUMBER,
@@ -169,6 +180,7 @@ struct process_data {
 struct task_data {
 	struct traceeval	*teval_cpus;
 	struct traceeval	*teval_tasks;
+	unsigned long long	last_ts;
 	char			*comm;
 };
 
@@ -250,11 +262,24 @@ get_process_data(struct task_data *tdata, const char *comm)
 	return data;
 }
 
+static void update_cpu_data(struct task_data *tdata, int cpu, int state,
+			    unsigned long long delta, unsigned long long ts)
+{
+	struct traceeval_data cpu_keys[2];
+	struct traceeval_data vals[1];
+
+	TRACEEVAL_SET_NUMBER(cpu_keys[0], cpu);
+	TRACEEVAL_SET_NUMBER(cpu_keys[1], state);
+
+	TRACEEVAL_SET_DELTA(vals[0], delta, ts);
+
+	traceeval_insert(tdata->teval_cpus, cpu_keys, vals);
+}
+
 static void update_cpu_to_idle(struct task_data *tdata, struct tep_record *record)
 {
 
 	struct traceeval_data delta_keys[1];
-	struct traceeval_data cpu_keys[2];
 	struct traceeval_data vals[1];
 	const struct traceeval_data *results;
 	unsigned long long delta;
@@ -267,12 +292,8 @@ static void update_cpu_to_idle(struct task_data *tdata, struct tep_record *recor
 				   record->ts, &delta, NULL);
 
 	if (ret > 0) {
-		TRACEEVAL_SET_NUMBER(cpu_keys[0], record->cpu);
-		TRACEEVAL_SET_NUMBER(cpu_keys[1], results[0].number);
-
-		TRACEEVAL_SET_DELTA(vals[0], delta, record->ts);
-
-		traceeval_insert(tdata->teval_cpus, cpu_keys, vals);
+		update_cpu_data(tdata, record->cpu, results[0].number,
+				delta, record->ts);
 		traceeval_results_release(tdata->teval_cpus, results);
 	}
 
@@ -313,13 +334,40 @@ static void update_cpu_to_running(struct task_data *tdata, struct tep_record *re
 				 record->ts);
 }
 
+static void update_thread(struct task_data *tdata, int pid, const char *comm,
+			  enum sched_state state, unsigned long long delta,
+			  unsigned long long ts)
+{
+		struct traceeval_data keys[2];
+		struct traceeval_data pvals[2];
+		struct traceeval_data vals[1];
+		struct process_data *pdata;
+
+		pdata = get_process_data(tdata, comm);
+
+		TRACEEVAL_SET_NUMBER(keys[0], pid);
+		TRACEEVAL_SET_NUMBER(keys[1], state);
+
+		TRACEEVAL_SET_DELTA(vals[0], delta, ts);
+
+		traceeval_insert(pdata->teval_threads, keys, vals);
+
+		/* Also update the process */
+		TRACEEVAL_SET_CSTRING(keys[0], comm);
+
+		TRACEEVAL_SET_POINTER(pvals[0], pdata);
+		TRACEEVAL_SET_DELTA(pvals[1], delta, ts);
+
+		traceeval_insert(tdata->teval_tasks, keys, pvals);
+}
+
 static void start_running_thread(struct task_data *tdata,
 				 struct tep_record *record,
 				 const char *comm, int pid)
 {
 	const struct traceeval_data *results;
 	struct traceeval_data delta_keys[1];
-	struct traceeval_data vals[1];
+	struct traceeval_data vals[2];
 	unsigned long long delta;
 	unsigned long long val;
 	int ret;
@@ -331,34 +379,15 @@ static void start_running_thread(struct task_data *tdata,
 				   &results, record->ts, &delta, &val);
 	if (ret > 0) {
 		enum sched_state state = results[0].number;
-		struct traceeval_data keys[2];
-		struct traceeval_data pvals[2];
-		struct process_data *pdata;
-
-		traceeval_results_release(tdata->teval_tasks, results);
-
-		pdata = get_process_data(tdata, comm);
-
-		TRACEEVAL_SET_NUMBER(keys[0], pid);
-		TRACEEVAL_SET_NUMBER(keys[1], state);
 
 		if (state == RUNNING)
 			die("State %d is running! %lld -> %lld", pid, val, record->ts);
-
-		TRACEEVAL_SET_DELTA(vals[0], delta, record->ts);
-
-		traceeval_insert(pdata->teval_threads, keys, vals);
-
-		/* Also update the process */
-		TRACEEVAL_SET_CSTRING(keys[0], comm);
-
-		TRACEEVAL_SET_POINTER(pvals[0], pdata);
-		TRACEEVAL_SET_DELTA(pvals[1], delta, record->ts);
-
-		traceeval_insert(tdata->teval_tasks, keys, pvals);
+		update_thread(tdata, pid, comm, state, delta, record->ts);
+		traceeval_results_release(tdata->teval_tasks, results);
 	}
 
 	TRACEEVAL_SET_NUMBER(vals[0], RUNNING);
+	TRACEEVAL_SET_CSTRING(vals[1], comm);
 
 	traceeval_delta_start(tdata->teval_tasks, delta_keys, vals, record->ts);
 }
@@ -409,13 +438,14 @@ static void sched_out(struct task_data *tdata, const char *comm,
 	ret = traceeval_delta_stop(tdata->teval_tasks, delta_keys, &results,
 				   record->ts, &delta, &val);
 
-	TRACEEVAL_SET_NUMBER(vals[0], state);
+	TRACEEVAL_SET_NUMBER(task_vals[0], state);
+	TRACEEVAL_SET_CSTRING(task_vals[1], comm);
 
 	if (ret > 0)
 		old_state = results[0].number;
 
 	/* Start recording why this task is off the CPU */
-	traceeval_delta_start(tdata->teval_tasks, delta_keys, vals, record->ts);
+	traceeval_delta_start(tdata->teval_tasks, delta_keys, task_vals, record->ts);
 	if (ret <= 0)
 		return;
 
@@ -790,6 +820,50 @@ static void free_tdata(struct task_data *tdata)
 {
 }
 
+static void finish_leftovers(struct task_data *data)
+{
+	const struct traceeval_data *results;
+	const struct traceeval_data *keys;
+	struct traceeval_iterator *iter;
+	unsigned long long delta;
+	enum sched_state state;
+	const char *comm;
+	int pid;
+
+	iter = traceeval_iterator_delta_start_get(data->teval_tasks);
+	while (traceeval_iterator_next(iter, &keys) > 0) {
+		traceeval_iterator_delta_stop(iter, &results, data->last_ts,
+					      &delta, NULL);
+
+		pid = keys[0].number;
+
+		state = results[0].number;
+		comm = results[1].cstring;
+
+		update_thread(data, pid, comm, state, delta, data->last_ts);
+	}
+	traceeval_iterator_put(iter);
+
+	iter = traceeval_iterator_delta_start_get(data->teval_cpus);
+	while (traceeval_iterator_next(iter, &keys) > 0) {
+		traceeval_iterator_delta_stop(iter, &results, data->last_ts,
+					      &delta, NULL);
+		update_cpu_data(data, keys[0].number, results[0].number,
+				delta, data->last_ts);
+	}
+	traceeval_iterator_put(iter);
+
+}
+
+static int event_callback(struct tracecmd_input *handle,
+			  struct tep_record *record, int cpu, void *d)
+{
+	struct task_data *data = d;
+
+	data->last_ts = record->ts;
+	return 0;
+}
+
 int main (int argc, char **argv)
 {
 	struct tracecmd_input *handle;
@@ -826,7 +900,7 @@ int main (int argc, char **argv)
 		pdie("Creating trace eval processe data");
 
 	if (traceeval_delta_create(data.teval_tasks, process_delta_keys,
-				   delta_vals) < 0)
+				   process_delta_vals) < 0)
 		pdie("Creating trace delta threads");
 
 	data.teval_cpus = traceeval_init(cpu_keys, delta_type);
@@ -838,7 +912,9 @@ int main (int argc, char **argv)
 
 	tracecmd_follow_event(handle, "sched", "sched_switch", switch_func, &data);
 
-	tracecmd_iterate_events(handle, NULL, 0, NULL, NULL);
+	tracecmd_iterate_events(handle, NULL, 0, event_callback, &data);
+
+	finish_leftovers(&data);
 
 	display(&data);
 

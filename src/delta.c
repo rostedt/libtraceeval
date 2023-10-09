@@ -336,3 +336,96 @@ int traceeval_delta_stop_size(struct traceeval *teval,
 
 	return 1;
 }
+
+static int create_delta_iter_array(struct traceeval_iterator *iter)
+{
+	struct traceeval *teval = iter->teval;
+	struct hash_table *hist = teval->hist;
+	struct hash_iter *hiter;
+	struct hash_item *item;
+	size_t ts_idx = teval->nr_val_types - 1;
+	size_t idx = 0;
+	int i;
+
+	iter->nr_entries = hash_nr_items(hist);
+	iter->entries = calloc(iter->nr_entries, sizeof(*iter->entries));
+	if (!iter->entries)
+		return -1;
+
+	for (i = 0, hiter = hash_iter_start(hist); (item = hash_iter_next(hiter)); i++) {
+		struct entry *entry = container_of(item, struct entry, hash);
+
+		/* Only add entries where the timestamp is non zero */
+		if (!entry->vals[ts_idx].number_64)
+			continue;
+
+		iter->entries[idx++] = entry;
+	}
+
+	iter->nr_entries = idx;
+
+	/* No sorting for this */
+	iter->no_sort = true;
+
+	return 0;
+}
+
+/**
+ * traceeval_iterator_delta_start_get - return iterator on delta start
+ * @teval: traceeval to get the delta iterator from
+ *
+ * This is used to find any element of a traceeval_delta that had
+ * a traceeval_delta_start() or traceeval_delta_continue() called on
+ * it without a traceeval_delta_stop(). That is, any "hanging" elements.
+ */
+struct traceeval_iterator *traceeval_iterator_delta_start_get(struct traceeval *teval)
+{
+	struct traceeval_iterator *iter;
+	int ret;
+
+	if (!teval->tdelta)
+		return NULL;
+
+	iter = calloc(1, sizeof(*iter));
+	if (!iter)
+		return NULL;
+
+	iter->teval = teval->tdelta->teval;
+
+	ret = create_delta_iter_array(iter);
+
+	if (ret < 0) {
+		free(iter);
+		iter = NULL;
+	}
+
+	return iter;
+}
+
+int traceeval_iterator_delta_stop(struct traceeval_iterator *iter,
+				  const struct traceeval_data **results,
+				  unsigned long long timestamp,
+				  unsigned long long *delta,
+				  unsigned long long *start_ts)
+{
+	unsigned long long ts;
+	struct entry *entry;
+
+	if (iter->next < 1 || iter->next > iter->nr_entries)
+		return -1;
+
+	entry = iter->entries[iter->next - 1];
+
+	if (results)
+		*results = entry->vals;
+
+	ts = entry->vals[iter->teval->nr_val_types - 1].number_64;
+
+	if (delta)
+		*delta = timestamp - ts;
+
+	if (start_ts)
+		*start_ts = ts;
+
+	return 1;
+}

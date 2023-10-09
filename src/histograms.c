@@ -1299,6 +1299,10 @@ int traceeval_iterator_sort(struct traceeval_iterator *iter, const char *sort_fi
 	struct traceeval_type *type;
 	int num_levels = level + 1;
 
+	/* delta iterators are not to be sorted */
+	if (iter->no_sort)
+		return -1;
+
 	type = find_sort_type(iter->teval, sort_field);
 	if (!type)
 		return -1;
@@ -1445,6 +1449,10 @@ int traceeval_iterator_sort_custom(struct traceeval_iterator *iter,
 		.data = data
 	};
 
+	/* delta iterators are not to be sorted */
+	if (iter->no_sort)
+		return -1;
+
 	if (check_update(iter) < 0)
 		return -1;
 
@@ -1473,7 +1481,7 @@ int traceeval_iterator_next(struct traceeval_iterator *iter,
 	struct entry *entry;
 	int ret;
 
-	if (iter->needs_sort) {
+	if (iter->needs_sort && !iter->no_sort) {
 		ret = sort_iter(iter);
 		if (ret < 0)
 			return ret;

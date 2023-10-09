@@ -336,6 +336,7 @@ unsigned long long traceeval_stat_min_timestamp(struct traceeval_stat *stat,
 						unsigned long long *ts);
 
 struct traceeval_iterator *traceeval_iterator_get(struct traceeval *teval);
+struct traceeval_iterator *traceeval_iterator_delta_start_get(struct traceeval *teval);
 void traceeval_iterator_put(struct traceeval_iterator *iter);
 int traceeval_iterator_sort(struct traceeval_iterator *iter, const char *sort_field,
 			    int level, bool ascending);
@@ -349,6 +350,11 @@ void traceeval_iterator_results_release(struct traceeval_iterator *iter,
 					const struct traceeval_data *results);
 struct traceeval_stat *traceeval_iterator_stat(struct traceeval_iterator *iter,
 					       const char *val_name);
+int traceeval_iterator_delta_stop(struct traceeval_iterator *iter,
+				  const struct traceeval_data **results,
+				  unsigned long long timestamp,
+				  unsigned long long *delta,
+				  unsigned long long *start_ts);
 int traceeval_iterator_remove(struct traceeval_iterator *iter);
 
 #endif /* __LIBTRACEEVAL_HIST_H__ */

@@ -95,6 +95,7 @@ struct traceeval_iterator {
 	size_t				nr_sort;
 	size_t				next;
 	bool				needs_sort;
+	bool				no_sort;
 };
 
 extern int _teval_get_entry(struct traceeval *teval, const struct traceeval_data *keys,
