@@ -53,6 +53,42 @@ __hidden void teval_print_err(int level, const char *fmt, ...)
 	va_end(ap);
 }
 
+static const char *get_type_name(enum traceeval_data_type type)
+{
+	switch (type) {
+	case TRACEEVAL_TYPE_NONE:
+		return "NONE";
+	case TRACEEVAL_TYPE_NUMBER_8:
+		return "NUMBER_8";
+	case TRACEEVAL_TYPE_NUMBER_16:
+		return "NUMBER_16";
+	case TRACEEVAL_TYPE_NUMBER_32:
+		return "NUMBER_32";
+	case TRACEEVAL_TYPE_NUMBER_64:
+		return "NUMBER_64";
+	case TRACEEVAL_TYPE_NUMBER:
+		return "NUMBER";
+	case TRACEEVAL_TYPE_POINTER:
+		return "POINTER";
+	case TRACEEVAL_TYPE_STRING:
+		return "STRING";
+	case TRACEEVAL_TYPE_DELTA:
+		return "DELTA";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+__hidden void teval_print_failed_type(const char *type,
+				      const struct traceeval_type *expect,
+				      const struct traceeval_data *got)
+{
+	teval_print_err(TEVAL_WARN, "%s %s has type %s but expects type %s",
+			type, expect->name,
+			get_type_name(got->type),
+			get_type_name(expect->type));
+}
+
 /*
  * Compare traceeval_data instances.
  *
@@ -69,11 +105,15 @@ static int compare_traceeval_data(struct traceeval *teval,
 	if (orig == copy)
 		return 0;
 
-	if (!orig)
+	if (!orig) {
+		teval_print_err(TEVAL_INFO, "No source data passed in to compare");
 		return -1;
+	}
 
-	if (!copy)
-		return 1;
+	if (!copy) {
+		teval_print_err(TEVAL_INFO, "No destination data passed in to compare");
+		return -1;
+	}
 
 	if (type->cmp)
 		return type->cmp(teval, type, orig, copy);
@@ -241,8 +281,11 @@ static int check_keys(struct traceeval_type *keys, int cnt)
 		switch (keys[i].type) {
 		case TRACEEVAL_TYPE_POINTER:
 			/* Key pointer types must have a cmp and hash function */
-			if (!keys[i].cmp || !keys[i].hash)
+			if (!keys[i].cmp || !keys[i].hash) {
+				teval_print_err(TEVAL_WARN, "Key %s must have compare and hansh values",
+						keys[i].name);
 				return -1;
+			}
 			break;
 		default:
 			break;
@@ -262,14 +305,24 @@ static int check_vals(struct traceeval *teval, struct traceeval_type *vals, int 
 
 		if (vals[i].flags & TRACEEVAL_FL_TIMESTAMP) {
 			/* Only one field may be marked as a timestamp */
-			if (ts_found)
+			if (ts_found) {
+				teval_print_err(TEVAL_WARN, "Two timestamps found: %s and %s",
+						vals[teval->timestamp_idx].name,
+						vals[i].name);
 				return -1;
+			}
 			/* The type must be numeric */
-			if (vals[i].type > TRACEEVAL_TYPE_NUMBER)
+			if (vals[i].type > TRACEEVAL_TYPE_NUMBER) {
+				teval_print_err(TEVAL_WARN, "Timestamp value %s must be numeric",
+						vals[i].name);
 				return -1;
+			}
 			/* TIMESTAMPS can not be STATs themselves */
-			if (vals[i].flags & TRACEEVAL_FL_STAT)
+			if (vals[i].flags & TRACEEVAL_FL_STAT) {
+				teval_print_err(TEVAL_WARN, "Value %s can not be both a timestamp and a stat value",
+						vals[i].name);
 				return -1;
+			}
 			ts_found = true;
 			teval->timestamp_idx = i;
 		}
@@ -535,12 +588,16 @@ __hidden int _teval_get_entry(struct traceeval *teval, const struct traceeval_da
 	int check = 0;
 	int i;
 
-	if (!teval || !keys)
+	if (!teval || !keys) {
+		teval_print_err(TEVAL_INFO, "No teval or key to get entry");
 		return -1;
+	}
 
 	for (i = 0; i < teval->nr_key_types; i++) {
-		if (keys[i].type != teval->key_types[i].type)
+		if (keys[i].type != teval->key_types[i].type) {
+			teval_print_failed_type("Key", &teval->key_types[i], &keys[i]);
 			return -1;
+		}
 	}
 
 	key = make_hash(teval, keys, hist->bits);
@@ -678,8 +735,10 @@ static int copy_traceeval_data(struct traceeval_type *type,
 		if (src->string)
 			dst->string = strdup(src->string);
 
-		if (!dst->string)
+		if (!dst->string) {
+			teval_print_err(TEVAL_CRIT, "Failed to allocate string");
 			return -1;
+		}
 		return 0;
 
 	case TRACEEVAL_TYPE_DELTA:
@@ -748,8 +807,10 @@ static int dup_traceeval_data_set(size_t size, struct traceeval_type *type,
 		return 1;
 
 	*copy = calloc(size, sizeof(**copy));
-	if (!*copy)
+	if (!*copy) {
+		teval_print_err(TEVAL_CRIT, "Failed to allocate data");
 		return -1;
+	}
 
 	for (i = 0; i < size; i++) {
 		if (copy_traceeval_data(type + i, stats ? stats + i : NULL,
@@ -760,6 +821,7 @@ static int dup_traceeval_data_set(size_t size, struct traceeval_type *type,
 	return 1;
 
 fail:
+	teval_print_err(TEVAL_INFO, "Error in copying data");
 	data_release_and_free(i, copy, type);
 	return -1;
 }
@@ -788,11 +850,16 @@ int traceeval_query_size(struct traceeval *teval, const struct traceeval_data *k
 	struct entry *entry;
 	int check;
 
-	if (!teval || !keys || !results)
+	if (!teval || !keys || !results) {
+		teval_print_err(TEVAL_INFO, "traceeval_query: No teval keys or results passed in");
 		return -1;
+	}
 
-	if (nr_keys != teval->nr_key_types)
+	if (nr_keys != teval->nr_key_types) {
+		teval_print_err(TEVAL_WARN, "traceeval_query: key array size is %zd but expected %zd",
+				nr_keys, teval->nr_key_types);
 		return -1;
+	}
 
 	/* find key and copy its corresponding value pair */
 	if ((check = _teval_get_entry(teval, keys, &entry)) < 1)
@@ -862,8 +929,10 @@ static int create_entry(struct traceeval *teval,
 	struct entry *entry;
 
 	entry = create_hist_entry(teval, keys);
-	if (!entry)
+	if (!entry) {
+		teval_print_err(TEVAL_CRIT, "Failed to allocate histogram");
 		return -1;
+	}
 
 	entry->val_stats = calloc(teval->nr_val_types, sizeof(*entry->val_stats));
 	if (!entry->val_stats)
@@ -924,8 +993,10 @@ static int update_entry(struct traceeval *teval, struct entry *entry,
 	ts = get_timestamp(teval, vals);
 
 	for (i = 0; i < teval->nr_val_types; i++) {
-		if (vals[i].type != teval->val_types[i].type)
+		if (vals[i].type != teval->val_types[i].type) {
+			teval_print_failed_type("Value", &teval->val_types[i], &vals[i]);
 			return -1;
+		}
 	}
 
 	for (i = 0; i < size; i++) {
@@ -1076,8 +1147,10 @@ __hidden int _teval_insert(struct traceeval *teval,
 	check = _teval_get_entry(teval, keys, &entry);
 
 	for (i = 0; i < nr_vals; i++) {
-		if (vals[i].type != teval->val_types[i].type)
+		if (vals[i].type != teval->val_types[i].type) {
+			teval_print_failed_type("Value", &teval->val_types[i], &vals[i]);
 			return -1;
+		}
 	}
 
 	if (check == -1)
@@ -1125,8 +1198,17 @@ int traceeval_insert_size(struct traceeval *teval,
 			  const struct traceeval_data *keys, size_t nr_keys,
 			  const struct traceeval_data *vals, size_t nr_vals)
 {
-	if (nr_keys != teval->nr_key_types || nr_vals != teval->nr_val_types)
+	if (nr_keys != teval->nr_key_types) {
+		teval_print_err(TEVAL_WARN, "traceeval_insert: received %zd keys but expected %zd",
+				nr_keys, teval->nr_key_types);
 		return -1;
+	}
+
+	if (nr_vals != teval->nr_val_types) {
+		teval_print_err(TEVAL_WARN, "traceeval_insert: received %zd vals but expected %zd",
+				nr_vals, teval->nr_val_types);
+		return -1;
+	}
 
 	return _teval_insert(teval, keys, nr_keys, vals, nr_vals);
 }
@@ -1151,8 +1233,11 @@ int traceeval_remove_size(struct traceeval *teval,
 	struct entry *entry;
 	int check;
 
-	if (teval->nr_key_types != nr_keys)
+	if (teval->nr_key_types != nr_keys) {
+		teval_print_err(TEVAL_WARN, "traceeval_remove: received %zd keys but expected %zd",
+				nr_keys, teval->nr_key_types);
 		return -1;
+	}
 
 	entry = NULL;
 	check = _teval_get_entry(teval, keys, &entry);
@@ -1211,8 +1296,10 @@ static int create_iter_array(struct traceeval_iterator *iter)
 
 	iter->nr_entries = hash_nr_items(hist);
 	iter->entries = calloc(iter->nr_entries, sizeof(*iter->entries));
-	if (!iter->entries)
+	if (!iter->entries) {
+		teval_print_err(TEVAL_CRIT, "Failed to allocate array");
 		return -1;
+	}
 
 	for (i = 0, hiter = hash_iter_start(hist); (item = hash_iter_next(hiter)); i++) {
 		struct entry *entry = container_of(item, struct entry, hash);
@@ -1224,6 +1311,7 @@ static int create_iter_array(struct traceeval_iterator *iter)
 	if (i != iter->nr_entries) {
 		free(iter->entries);
 		iter->entries = NULL;
+		teval_print_err(TEVAL_WARN, "Error in hash lookup");
 		return -1;
 	}
 
@@ -1334,14 +1422,20 @@ int traceeval_iterator_sort(struct traceeval_iterator *iter, const char *sort_fi
 		return -1;
 
 	type = find_sort_type(iter->teval, sort_field);
-	if (!type)
+	if (!type) {
+		teval_print_err(TEVAL_WARN, "traceeval_iterator_sort: Could not find sort field %s",
+				sort_field);
 		return -1;
+	}
 
 	/* pointer types must have a cmp function */
 	switch (type->type) {
 	case TRACEEVAL_TYPE_POINTER:
-		if (!type->cmp)
+		if (!type->cmp) {
+			teval_print_err(TEVAL_WARN, "traceeval_iterator_sort: No compare function for type %s",
+					type->name);
 			return -1;
+		}
 		break;
 	default:
 		break;
@@ -1349,14 +1443,18 @@ int traceeval_iterator_sort(struct traceeval_iterator *iter, const char *sort_fi
 
 	if (num_levels > iter->nr_sort) {
 		sort = realloc(sort, sizeof(*sort) * num_levels);
-		if (!sort)
+		if (!sort) {
+			teval_print_err(TEVAL_CRIT, "Failed to allocate sort");
 			return -1;
+		}
 
 		iter->sort = sort;
 
 		direction = realloc(direction, sizeof(*direction) * num_levels);
-		if (!direction)
+		if (!direction) {
+			teval_print_err(TEVAL_CRIT, "Failed to allocate direction");
 			return -1;
+		}
 
 		iter->direction = direction;
 
@@ -1436,8 +1534,10 @@ static int sort_iter(struct traceeval_iterator *iter)
 
 	/* Make sure all levels are filled */
 	for (i = 0; i < iter->nr_sort; i++) {
-		if (!iter->sort[i])
+		if (!iter->sort[i]) {
+			teval_print_err(TEVAL_WARN, "Missing sort level");
 			return -1;
+		}
 	}
 
 	if (check_update(iter) < 0)
@@ -1480,8 +1580,10 @@ int traceeval_iterator_sort_custom(struct traceeval_iterator *iter,
 	};
 
 	/* delta iterators are not to be sorted */
-	if (iter->no_sort)
+	if (iter->no_sort) {
+		teval_print_err(TEVAL_WARN, "Can not sort start events in deltas");
 		return -1;
+	}
 
 	if (check_update(iter) < 0)
 		return -1;

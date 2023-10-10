@@ -58,12 +58,16 @@ int traceeval_delta_create_data_size(struct traceeval *teval,
 	int i;
 
 	/* Only one can exist */
-	if (teval->tdelta)
+	if (teval->tdelta) {
+		teval_print_err(TEVAL_WARN, "Multiple deltas added to traceeval");
 		return -1;
+	}
 
 	tdelta = calloc(1, sizeof(*tdelta));
-	if (!tdelta)
+	if (!tdelta) {
+		teval_print_err(TEVAL_CRIT, "Failed to allocate delta");
 		return -1;
+	}
 
 	if (vals) {
 		for (i = 0; i < nr_vals && vals[i].type != TRACEEVAL_TYPE_NONE; i++)
@@ -134,8 +138,10 @@ int traceeval_delta_remove_size(struct traceeval *teval,
 				const struct traceeval_data *keys,
 				size_t nr_keys)
 {
-	if (!teval->tdelta)
+	if (!teval->tdelta) {
+		teval_print_err(TEVAL_WARN, "traceeval_delta_remove: traceeval does not have delta to remove");
 		return -1;
+	}
 	return traceeval_remove_size(teval->tdelta->teval, keys, nr_keys);
 }
 
@@ -162,8 +168,10 @@ int traceeval_delta_query_size(struct traceeval *teval,
 			       const struct traceeval_data *keys,
 			       size_t nr_keys, const struct traceeval_data **results)
 {
-	if (!teval->tdelta)
+	if (!teval->tdelta) {
+		teval_print_err(TEVAL_WARN, "traceeval_delta_query: traceeval does not have delta to query");
 		return -1;
+	}
 	return traceeval_query_size(teval->tdelta->teval, keys,
 				    nr_keys, results);
 }
@@ -177,14 +185,24 @@ static int delta_start(struct traceeval *teval,
 	int ret;
 	int i;
 
-	if (!teval->tdelta)
+	if (!teval->tdelta) {
+		teval_print_err(TEVAL_WARN, "traceeval_delta_start/continue: traceeval does not have delta");
 		return -1;
+	}
 
 	teval = teval->tdelta->teval;
 
-	if (nr_keys != teval->nr_key_types ||
-	    nr_vals != teval->nr_val_types - 1)
+	if (nr_keys != teval->nr_key_types) {
+		teval_print_err(TEVAL_WARN, "traceeval_delta_start/continue: Received %zd keys but expected %zd",
+				nr_keys, teval->nr_key_types);
 		return -1;
+	}
+
+	if (nr_vals != teval->nr_val_types - 1) {
+		teval_print_err(TEVAL_WARN, "traceeval_delta_start/continue: Received %zd vals but expected %zd",
+				nr_vals, teval->nr_val_types - 1);
+		return -1;
+	}
 
 	ret = _teval_get_entry(teval, keys, &entry);
 	if (ret < 0)
@@ -309,8 +327,10 @@ int traceeval_delta_stop_size(struct traceeval *teval,
 	struct entry *entry;
 	int ret;
 
-	if (!teval->tdelta)
+	if (!teval->tdelta) {
+		teval_print_err(TEVAL_WARN, "traceeval_delta_stop: traceeval does not have delta");
 		return -1;
+	}
 
 	teval = teval->tdelta->teval;
 
@@ -349,8 +369,10 @@ static int create_delta_iter_array(struct traceeval_iterator *iter)
 
 	iter->nr_entries = hash_nr_items(hist);
 	iter->entries = calloc(iter->nr_entries, sizeof(*iter->entries));
-	if (!iter->entries)
+	if (!iter->entries) {
+		teval_print_err(TEVAL_CRIT, "Failed to allocate entries");
 		return -1;
+	}
 
 	for (i = 0, hiter = hash_iter_start(hist); (item = hash_iter_next(hiter)); i++) {
 		struct entry *entry = container_of(item, struct entry, hash);
