@@ -538,6 +538,10 @@ __hidden void _teval_update_stat(struct traceeval_type *type,
 				 unsigned long long val,
 				 unsigned long long ts)
 {
+	/* If both the delta and the timestamp are zero, ignore this */
+	if (!val && !ts)
+		return;
+
 	if (!stat->count++) {
 		stat->max = val;
 		stat->min = val;
