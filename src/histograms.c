@@ -14,19 +14,43 @@
 #include <traceeval.h>
 #include "eval-local.h"
 
+static int warning_level = TEVAL_NONE;
+
+void traceeval_set_log_level(enum traceeval_log_level level)
+{
+	warning_level = level;
+}
+
+/**
+ * traceeval_vwarning - print a warning message
+ * @fmt: The format of the message
+ * @ap: The parameters for the format
+ *
+ * This can be overridden by the application, but by default it
+ * will print to stderr.
+ */
+__weak void traceeval_vwarning(const char *fmt, va_list ap)
+{
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+}
+
 /*
- * print_err - print an error message
+ * teval_print_err - print an error message
+ * @level: The warning level of this message
  * @fmt: String format
  * @...: (optional) Additional arguments to print in conjunction with @format
  */
-static void print_err(const char *fmt, ...)
+__hidden void teval_print_err(int level, const char *fmt, ...)
 {
 	va_list ap;
 
+	if (level > warning_level)
+		return;
+
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	traceeval_vwarning(fmt, ap);
 	va_end(ap);
-	fprintf(stderr, "\n");
 }
 
 /*
@@ -78,7 +102,8 @@ static int compare_traceeval_data(struct traceeval *teval,
 		compare_numbers_return(orig->delta.delta, copy->delta.delta);
 
 	default:
-		print_err("%d is an invalid enum traceeval_data_type member",
+		teval_print_err(TEVAL_WARN,
+				"%d is an invalid enum traceeval_data_type member",
 				type->type);
 		return -2;
 	}
@@ -193,9 +218,10 @@ static size_t type_alloc(const struct traceeval_type *defs,
 
 fail:
 	if (defs[i].name)
-		print_err("Failed to allocate traceeval_type %zu", size);
+		teval_print_err(TEVAL_CRIT,
+				"Failed to allocate traceeval_type %zu", size);
 	else
-		print_err("traceeval_type list missing a name");
+		teval_print_err(TEVAL_WARN, "traceeval_type list missing a name");
 
 	for (; i >= 0; i--)
 		free(new_defs[i].name);
@@ -355,7 +381,7 @@ fail_release:
 	traceeval_release(teval);
 
 fail:
-	print_err(err_msg);
+	teval_print_err(TEVAL_WARN, err_msg);
 	return NULL;
 }
 
@@ -386,7 +412,7 @@ static void clean_data_set(struct traceeval_data *data, struct traceeval_type *d
 
 	if (!data || !defs) {
 		if (data)
-			print_err("Data to be freed without accompanied types!");
+			teval_print_err(TEVAL_INFO, "Data to be freed without accompanied types!");
 		return;
 	}
 
@@ -792,7 +818,7 @@ void traceeval_results_release(struct traceeval *teval,
 {
 	if (!teval || !results) {
 		if (!teval)
-			print_err("Results to be freed without accompanied traceeval instance!");
+			teval_print_err(TEVAL_INFO, "Results to be freed without accompanied traceeval instance!");
 		return;
 	}
 }
@@ -1554,7 +1580,7 @@ void traceeval_iterator_results_release(struct traceeval_iterator *iter,
 {
 	if (!iter || !results) {
 		if (!iter)
-			print_err("Results to be freed without accompanied iterator!");
+			teval_print_err(TEVAL_INFO, "Results to be freed without accompanied iterator!");
 		return;
 	}
 }

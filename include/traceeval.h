@@ -10,6 +10,7 @@
 
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdarg.h>
 #include <stdbool.h>
 
 /* Data definition interfaces */
@@ -61,6 +62,16 @@ enum traceeval_flags {
 	TRACEEVAL_FL_TIMESTAMP		= (1 << 3),
 	TRACEEVAL_FL_STAT		= (1 << 4),
 };
+
+enum traceeval_log_level {
+	TEVAL_NONE		= 0,
+	TEVAL_CRIT,
+	TEVAL_WARN,
+	TEVAL_INFO,
+};
+
+extern void traceeval_vwarning(const char *fmt, va_list ap);
+extern void traceeval_set_log_level(enum traceeval_log_level level);
 
 struct traceeval_data_delta {
 	unsigned long long			delta;

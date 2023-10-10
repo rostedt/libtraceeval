@@ -5,6 +5,7 @@
 #include <string.h>
 
 #define __hidden __attribute__((visibility ("hidden")))
+#define __weak __attribute__((weak))
 
 #define offset_of(type, field) ((size_t)(&(((type *)(NULL))->field)))
 #define container_of(ptr, type, field) \
@@ -13,6 +14,10 @@
 #define HASH_BITS 10	/* Start with 1K of buckets */
 #define HASH_SIZE(bits)	(1 << (bits))
 #define HASH_MASK(bits)	(HASH_SIZE(bits) - 1)
+
+
+extern void __attribute__ ((format (printf, 2, 3)))
+ teval_print_err(int level, const char *fmt, ...);
 
 /*
  * Compare two integers of variable length.
