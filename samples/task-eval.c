@@ -348,8 +348,10 @@ void set_process_data(struct task_data *tdata, const char *comm, void *data)
 	int ret;
 
 	ret = traceeval_query(tdata->teval_tasks, keys, &results);
-	if (ret > 0)
-		goto out; /* It already exists ? */
+	if (ret > 0) {
+		traceeval_results_release(tdata->teval_tasks, results);
+		return; /* It already exists ? */
+	}
 	if (ret < 0)
 		pdie("Could not query process data");
 
@@ -358,9 +360,6 @@ void set_process_data(struct task_data *tdata, const char *comm, void *data)
 	ret = traceeval_insert(tdata->teval_tasks, keys, new_vals);
 	if (ret < 0)
 		pdie("Failed to set process data");
-
- out:
-	traceeval_results_release(tdata->teval_tasks, results);
 }
 
 static struct process_data *alloc_pdata(struct task_data *tdata, const char *comm)
