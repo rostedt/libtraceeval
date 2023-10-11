@@ -176,6 +176,22 @@ int traceeval_delta_query_size(struct traceeval *teval,
 				    nr_keys, results);
 }
 
+static int insert_vals(struct traceeval *teval, const struct traceeval_data *keys,
+		       const struct traceeval_data *vals, unsigned long long ts)
+{
+	struct traceeval_data new_vals[teval->nr_val_types] = {};
+	int nr_vals = teval->nr_val_types - 1;
+	int i;
+
+	for (i = 0; i < nr_vals; i++)
+		new_vals[i] = vals[i];
+
+	TRACEEVAL_SET_NUMBER_64(new_vals[i], ts);
+
+	return _teval_insert(teval, keys, teval->nr_key_types,
+			     new_vals, teval->nr_val_types);
+}
+
 static int delta_start(struct traceeval *teval,
 		       const struct traceeval_data *keys, size_t nr_keys,
 		       const struct traceeval_data *vals, size_t nr_vals,
@@ -183,7 +199,6 @@ static int delta_start(struct traceeval *teval,
 {
 	struct entry *entry;
 	int ret;
-	int i;
 
 	if (!teval->tdelta) {
 		teval_print_err(TEVAL_WARN, "traceeval_delta_start/continue: traceeval does not have delta");
@@ -208,27 +223,10 @@ static int delta_start(struct traceeval *teval,
 	if (ret < 0)
 		return ret;
 
-	if (ret) {
-		if (cont && TEVAL_TIMESTAMP(teval, entry->vals))
-			return 0;
-
-		for (i = 0; i < nr_vals; i++)
-			entry->vals[i] = vals[i];
-
-		TRACEEVAL_SET_NUMBER_64(entry->vals[i], timestamp);
-
+	if (ret && cont && TEVAL_TIMESTAMP(teval, entry->vals))
 		return 0;
-	} else {
-		struct traceeval_data new_vals[teval->nr_val_types] = {};
 
-		for (i = 0; i < nr_vals; i++)
-			new_vals[i] = vals[i];
-
-		TRACEEVAL_SET_NUMBER_64(new_vals[i], timestamp);
-
-		return _teval_insert(teval, keys, teval->nr_key_types,
-				     new_vals, teval->nr_val_types);
-	}
+	return insert_vals(teval, keys, vals, timestamp);
 }
 
 /*
