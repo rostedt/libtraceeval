@@ -225,6 +225,20 @@ static void assign_task_keys(struct traceeval_data keys[2],
 	TRACEEVAL_SET_NUMBER(keys[1], state);
 }
 
+static void release_data(const struct traceeval_type *type,
+			  struct traceeval_data *data);
+
+static int copy_data(const struct traceeval_type *type,
+		     struct traceeval_data *dst,
+		     const struct traceeval_data *src)
+{
+	if (dst->pointer && dst->pointer != src->pointer)
+		die("Pointers do not match!");
+	/* This prevents releases of data */
+	*dst = *src;
+	return 0;
+}
+
 /*
  * For each state the process is in, record the time delta for
  * that state. Also, only for the RUNNING state, this will
@@ -237,6 +251,8 @@ static struct traceeval_type task_vals[] = {
 	{
 		.type = TRACEEVAL_TYPE_POINTER,
 		.name = "data",
+		.release = release_data,
+		.copy = copy_data,
 	},
 	{
 		.type = TRACEEVAL_TYPE_DELTA,
@@ -325,6 +341,21 @@ enum command {
 	START,
 	STOP
 };
+
+static void release_data(const struct traceeval_type *type,
+			  struct traceeval_data *data)
+{
+	struct process_data *pdata;
+
+	if (!data || !data->pointer)
+		return;
+
+	pdata = data->pointer;
+	traceeval_release(pdata->teval_cpus);
+	traceeval_release(pdata->teval_threads);
+	free(pdata);
+	data->pointer = NULL;
+}
 
 static void init_process_data(struct process_data *pdata)
 {
@@ -1043,6 +1074,11 @@ static void display(struct task_data *tdata)
 
 static void free_tdata(struct task_data *tdata)
 {
+	if (!tdata)
+		return;
+
+	traceeval_release(tdata->teval_cpus);
+	traceeval_release(tdata->teval_tasks);
 }
 
 /*
