@@ -41,6 +41,7 @@ static void usage(void)
 	       "  Run this on the resulting trace.dat file\n"
 	       "\n"
 	       "-c comm - to look at only a specific process called 'comm'\n"
+	       "-B instance - read a buffer instance in the trace.dat file\n"
 	       "\n",p);
 	exit(-1);
 }
@@ -975,16 +976,20 @@ int main (int argc, char **argv)
 {
 	struct tracecmd_input *handle;
 	struct task_data data;
+	const char *buffer = NULL;
 	int c;
 
 	memset(&data, 0, sizeof(data));
 
 	argv0 = argv[0];
 
-	while ((c = getopt(argc, argv, "c:h")) >= 0) {
+	while ((c = getopt(argc, argv, "c:B:h")) >= 0) {
 		switch (c) {
 		case 'c':
 			data.comm = optarg;
+			break;
+		case 'B':
+			buffer = optarg;
 			break;
 		case 'h':
 		default:
@@ -1001,6 +1006,24 @@ int main (int argc, char **argv)
 	handle = tracecmd_open(argv[0], TRACECMD_FL_LOAD_NO_PLUGINS);
 	if (!handle)
 		pdie("Error opening %s", argv[0]);
+
+	if (buffer) {
+		int bufs;
+		int i;
+
+		bufs = tracecmd_buffer_instances(handle);
+		for (i = 0; i < bufs; i++) {
+			const char *name;
+
+			name = tracecmd_buffer_instance_name(handle, i);
+			if (name && strcmp(name, buffer) == 0) {
+				handle = tracecmd_buffer_instance_handle(handle, i);
+				break;
+			}
+		}
+		if (i == bufs)
+			die("Can not find instance %s\n", buffer);
+	}
 
 	data.teval_tasks = traceeval_init(task_keys, task_vals);
 	if (!data.teval_tasks)
