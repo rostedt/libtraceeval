@@ -496,6 +496,10 @@ static void update_thread(struct task_data *tdata, int pid, const char *comm,
 
 		traceeval_insert(pdata->teval_threads, thread_keys, vals);
 
+		/* Only the RUNNING state keeps pdata */
+		if (state != RUNNING)
+			pdata = NULL;
+
 		/* Also update the process */
 		assign_task_keys(task_keys, comm, state);
 		assign_task_vals(pvals, pdata, delta, ts);
