@@ -338,8 +338,6 @@ static int check_vals(struct traceeval *teval, struct traceeval_type *vals, int 
 			vals[i].flags |= TRACEEVAL_FL_STAT;
 		vals[i].index = i;
 	}
-	if (!ts_found)
-		teval->timestamp_idx = -1;
 	return 0;
 }
 
@@ -401,6 +399,8 @@ struct traceeval *traceeval_init_data_size(struct traceeval_type *keys,
 		err_msg = "Failed to allocate memory for traceeval instance";
 		goto fail;
 	}
+
+	teval->timestamp_idx = -1;
 
 	ret = check_keys(keys, nr_keys);
 	if (ret < 0)
