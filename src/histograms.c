@@ -90,6 +90,13 @@ __hidden void teval_print_failed_type(const char *type,
 			get_type_name(expect->type));
 }
 
+__hidden void teval_print_failed_count(const char *func, const char *type,
+				       size_t cnt, size_t expect)
+{
+	teval_print_err(TEVAL_WARN, "%s: %s array size is %zd but expected %zd",
+				func, type, cnt, expect);
+}
+
 /*
  * Compare traceeval_data instances.
  *
@@ -871,8 +878,8 @@ int traceeval_query_size(struct traceeval *teval, const struct traceeval_data *k
 	}
 
 	if (nr_keys != teval->nr_key_types) {
-		teval_print_err(TEVAL_WARN, "traceeval_query: key array size is %zd but expected %zd",
-				nr_keys, teval->nr_key_types);
+		teval_print_failed_count("traceeval_query", "key",
+					 nr_keys, teval->nr_key_types);
 		return -1;
 	}
 
@@ -1057,8 +1064,11 @@ struct traceeval_stat *traceeval_stat_size(struct traceeval *teval,
 	struct entry *entry;
 	int ret;
 
-	if (teval->nr_key_types != nr_keys)
+	if (nr_keys != teval->nr_key_types) {
+		teval_print_failed_count("traceeval_stat", "key",
+					 nr_keys, teval->nr_key_types);
 		return NULL;
+	}
 
 	type = find_val_type(teval, val_name);
 	if (!type)
@@ -1248,14 +1258,14 @@ int traceeval_insert_size(struct traceeval *teval,
 			  const struct traceeval_data *vals, size_t nr_vals)
 {
 	if (nr_keys != teval->nr_key_types) {
-		teval_print_err(TEVAL_WARN, "traceeval_insert: received %zd keys but expected %zd",
-				nr_keys, teval->nr_key_types);
+		teval_print_failed_count("traceeval_insert", "key",
+					 nr_keys, teval->nr_key_types);
 		return -1;
 	}
 
 	if (nr_vals != teval->nr_val_types) {
-		teval_print_err(TEVAL_WARN, "traceeval_insert: received %zd vals but expected %zd",
-				nr_vals, teval->nr_val_types);
+		teval_print_failed_count("traceeval_insert", "vals",
+					 nr_vals, teval->nr_val_types);
 		return -1;
 	}
 
@@ -1282,9 +1292,9 @@ int traceeval_remove_size(struct traceeval *teval,
 	struct entry *entry;
 	int check;
 
-	if (teval->nr_key_types != nr_keys) {
-		teval_print_err(TEVAL_WARN, "traceeval_remove: received %zd keys but expected %zd",
-				nr_keys, teval->nr_key_types);
+	if (nr_keys != teval->nr_key_types) {
+		teval_print_failed_count("traceeval_remove", "keys",
+					 nr_keys, teval->nr_key_types);
 		return -1;
 	}
 

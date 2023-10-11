@@ -208,14 +208,14 @@ static int delta_start(struct traceeval *teval,
 	teval = teval->tdelta->teval;
 
 	if (nr_keys != teval->nr_key_types) {
-		teval_print_err(TEVAL_WARN, "traceeval_delta_start/continue: Received %zd keys but expected %zd",
-				nr_keys, teval->nr_key_types);
+		teval_print_failed_count("traceeval_delta_start/continue", "keys",
+					 nr_keys, teval->nr_key_types);
 		return -1;
 	}
 
 	if (nr_vals != teval->nr_val_types - 1) {
-		teval_print_err(TEVAL_WARN, "traceeval_delta_start/continue: Received %zd vals but expected %zd",
-				nr_vals, teval->nr_val_types - 1);
+		teval_print_failed_count("traceeval_delta_start/continue", "vals",
+					 nr_vals, teval->nr_val_types - 1);
 		return -1;
 	}
 

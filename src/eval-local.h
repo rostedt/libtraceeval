@@ -108,6 +108,9 @@ extern void teval_print_failed_type(const char *type,
 				    const struct traceeval_type *expect,
 				    const struct traceeval_data *got);
 
+extern void teval_print_failed_count(const char *func, const char *type,
+				     size_t cnt, size_t expect);
+
 extern int _teval_get_entry(struct traceeval *teval, const struct traceeval_data *keys,
 			    struct entry **result);
 
