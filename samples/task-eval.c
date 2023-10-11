@@ -254,6 +254,8 @@ enum sched_state {
 	PREEMPT,
 	SLEEP,
 	IDLE,
+	ZOMBIE,
+	EXITED,
 	OTHER
 };
 
@@ -474,6 +476,10 @@ static int get_stop_state(unsigned long long val)
 		return SLEEP;
 	if (val & 2)
 		return BLOCKED;
+	if (val & 0x10)
+		return ZOMBIE;
+	if (val & 0x20)
+		return EXITED;
 	return PREEMPT;
 }
 
