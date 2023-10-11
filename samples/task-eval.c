@@ -828,6 +828,8 @@ static void display_cpus(struct traceeval *teval)
 
 	if (last_cpu < 0)
 		die("No result for CPUs\n");
+
+	traceeval_iterator_put(iter);
 }
 
 static void print_stats(int idx, struct traceeval_stat *stat)
@@ -920,6 +922,8 @@ static void display_threads(struct traceeval *teval)
 		display_state_times(state, stat);
 	}
 
+	traceeval_iterator_put(iter);
+
 	if (last_tid < 0)
 		die("No result for threads\n");
 }
@@ -982,12 +986,13 @@ static void display_processes(struct traceeval *teval)
 		if (pdata)
 			display_process(pdata);
 	}
+	traceeval_iterator_put(iter);
 }
 
 static void display(struct task_data *tdata)
 {
 	struct traceeval *teval = tdata->teval_cpus;
-	struct traceeval_iterator *iter = traceeval_iterator_get(teval);
+	struct traceeval_iterator *iter;
 	const struct traceeval_data *keys;
 	struct traceeval_stat *stat;
 	unsigned long long total_time = 0;
@@ -996,6 +1001,8 @@ static void display(struct task_data *tdata)
 	if (tdata->comm) {
 		return display_processes(tdata->teval_tasks);
 	}
+
+	iter = traceeval_iterator_get(teval);
 
 	printf("Total:\n");
 
@@ -1020,6 +1027,8 @@ static void display(struct task_data *tdata)
 			die("Invalid CPU state: %d\n", state);
 		}
 	}
+
+	traceeval_iterator_put(iter);
 
 	printf("  Total  run time (us):");
 	print_microseconds_nl(16, total_time);
