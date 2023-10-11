@@ -274,6 +274,12 @@ int traceeval_query_size(struct traceeval *teval, const struct traceeval_data *k
 void traceeval_results_release(struct traceeval *teval,
 			       const struct traceeval_data *results);
 
+#define traceeval_hitcount(teval, keys)					\
+	traceeval_hitcount_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys))
+
+ssize_t traceeval_hitcount_size(struct traceeval *teval,
+				const struct traceeval_data *keys, size_t nr_keys);
+
 size_t traceeval_count(struct traceeval *teval);
 
 #define traceeval_delta_create(teval, keys, vals)			\

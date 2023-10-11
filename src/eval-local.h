@@ -67,6 +67,7 @@ struct entry {
 	struct traceeval_data	*keys;
 	struct traceeval_data	*vals;
 	struct traceeval_stat	*val_stats;
+	size_t			hitcount;
 };
 
 enum {

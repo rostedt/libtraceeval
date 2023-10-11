@@ -974,6 +974,7 @@ static int create_entry(struct traceeval *teval,
 
 	entry->keys = new_keys;
 	entry->vals = new_vals;
+	entry->hitcount = 1;
 
 	teval->update_counter++;
 	teval->nr_elements++;
@@ -1008,6 +1009,8 @@ static int update_entry(struct traceeval *teval, struct entry *entry,
 	unsigned long long ts;
 	size_t size = teval->nr_val_types;
 	ssize_t i;
+
+	entry->hitcount++;
 
 	if (!size)
 		return 0;
@@ -1053,6 +1056,39 @@ static struct traceeval_type *find_val_type(struct traceeval *teval, const char 
 			return type;
 	}
 	return NULL;
+}
+
+/**
+ * traceeval_hitcount - return the number of times a entry was updated
+ * @teval: The traceeval descriptor
+ * @keys: The keys to find how many times it was hit
+ * @nr_keys: The size of @keys
+ *
+ * This looks for the entry represested by @keys in @teval and returns
+ * the number of times it was updated. If no entry is found, it will
+ * return 0 and if @nr_keys does not match what is expected it will return
+ * -1.
+ *
+ * Returns number of hits @keys had on success, 0 if not found, and -1 on error.
+ */
+ssize_t traceeval_hitcount_size(struct traceeval *teval,
+				const struct traceeval_data *keys,
+				size_t nr_keys)
+{
+	struct entry *entry;
+	int ret;
+
+	if (nr_keys != teval->nr_key_types) {
+		teval_print_failed_count("traceeval_hitcount", "key",
+					 nr_keys, teval->nr_key_types);
+		return -1;
+	}
+
+	ret = _teval_get_entry(teval, keys, &entry);
+	if (ret <= 0)
+		return 0;
+
+	return entry->hitcount;
 }
 
 struct traceeval_stat *traceeval_stat_size(struct traceeval *teval,

@@ -204,30 +204,18 @@ struct traceeval_type sched_keys[] = {
 	},
 };
 
-
-struct traceeval_type sched_vals[] = {
-	{
-		.type = TRACEEVAL_TYPE_NUMBER_64,
-		.name = "Hitcount",
-	},
-};
-
 static int sched_callback(struct tep_event *event, struct tep_record *record,
 			  int cpu, void *data)
 {
 	static struct tep_format_field *pid_field;
 	static struct tep_format_field *comm_field;
 	static struct tep_format_field *state_field;
-	const struct traceeval_data *results;
 	struct traceeval_data keys[3];
-	struct traceeval_data vals[1];
 	struct traceeval *teval = data;
-	unsigned long long hits = 0;
 	unsigned long long val;
 	char *comm;
 	int state;
 	int pid;
-	int ret;
 
 	if (!pid_field) {
 		pid_field = tep_find_field(event, "prev_pid");
@@ -250,20 +238,7 @@ static int sched_callback(struct tep_event *event, struct tep_record *record,
 	TRACEEVAL_SET_NUMBER(keys[1], pid);
 	TRACEEVAL_SET_NUMBER(keys[2], state);
 
-	ret = traceeval_query(teval, keys, &results);
-	if (ret < 0)
-		pdie("Failed to query keys");
-
-	if (ret) {
-		hits = results[0].number_64;
-		traceeval_results_release(teval, results);
-	}
-
-	hits++;
-
-	TRACEEVAL_SET_NUMBER_64(vals[0], hits);
-
-	traceeval_insert(teval, keys, vals);
+	traceeval_insert(teval, keys, NULL);
 
 	return 0;
 }
@@ -284,7 +259,6 @@ static char *get_state(int state)
 static void display_teval(struct traceeval *teval)
 {
 	struct traceeval_iterator *iter = traceeval_iterator_get(teval);
-	const struct traceeval_data *results;
 	const struct traceeval_data *keys;
 
 	/* Sort comms first. */
@@ -295,11 +269,10 @@ static void display_teval(struct traceeval *teval)
 	traceeval_iterator_sort(iter, sched_keys[2].name, 2, true);
 
 	while (traceeval_iterator_next(iter, &keys) > 0) {
-		traceeval_iterator_query(iter, &results);
+		ssize_t hits = traceeval_hitcount_size(teval, keys, TRACEEVAL_ARRAY_SIZE(sched_keys));
 
-		printf("%s [%ld] %s: %lld\n",
-		       keys[0].string, keys[1].number, get_state(keys[2].number),
-		       results[0].number_64);
+		printf("%s [%ld] %s: %zd\n",
+		       keys[0].string, keys[1].number, get_state(keys[2].number), hits);
 	}
 	traceeval_iterator_put(iter);
 }
@@ -318,7 +291,7 @@ int main (int argc, char **argv)
 	bool finished = false;
 	int ret;
 
-	teval = traceeval_init(sched_keys, sched_vals);
+	teval = traceeval_init(sched_keys, NULL);
 	if (!teval)
 		pdie("Creating traceeval");
 
