@@ -814,6 +814,7 @@ static int compare_pdata(struct traceeval *teval,
 static void display_cpus(struct traceeval *teval)
 {
 	struct traceeval_iterator *iter = traceeval_iterator_get(teval);
+	unsigned long long max, max_ts, min, min_ts;
 	const struct traceeval_data *keys;
 	struct traceeval_stat *stat;
 	int last_cpu = -1;
@@ -834,6 +835,9 @@ static void display_cpus(struct traceeval *teval)
 		if (!stat)
 			continue; // die?
 
+		max = traceeval_stat_max_timestamp(stat, &max_ts);
+		min = traceeval_stat_min_timestamp(stat, &min_ts);
+
 		if (last_cpu != cpu)
 			printf("    CPU [%d]:\n", cpu);
 
@@ -853,6 +857,18 @@ static void display_cpus(struct traceeval *teval)
 		}
 		printf(" time (us):");
 		print_microseconds_nl(12, traceeval_stat_total(stat));
+		printf("              average (us):");
+		print_microseconds_nl(12, traceeval_stat_average(stat));
+		printf("                       max:");
+		print_microseconds(12, max);
+		printf("\tat: %lld\n", max_ts);
+		printf("                       min:");
+		print_microseconds(12, min);
+		printf("\tat: %lld\n", min_ts);
+		printf("                     count: %*lld\n", 11,
+			traceeval_stat_count(stat));
+		printf("                   stddev: %*.3f\n", 16,
+		       traceeval_stat_stddev(stat) / 1000);
 
 		last_cpu = cpu;
 	}
@@ -883,13 +899,17 @@ static void print_stats(int idx, struct traceeval_stat *stat)
 		printf("\tat: %lld\n", max_ts);
 	} else {
 		print_microseconds_nl(idx, total);
-		printf("%*s%*lld\n", 40 - idx, "count:", idx, cnt);
+		printf("%*s", 40 - idx, "average:");
+		print_microseconds_nl(idx, traceeval_stat_average(stat));
 		printf("%*s", 40 - idx, "max:");
 		print_microseconds(idx, max);
 		printf("\tat: %lld\n", max_ts);
 		printf("%*s", 40 - idx, "min:");
 		print_microseconds(idx, min);
 		printf("\tat: %lld\n", min_ts);
+		printf("%*s%*lld\n", 40 - idx, "count:", idx, cnt);
+		printf("%*s%*.3f\n", 40 - idx, "stddev:", idx + 4,
+		       traceeval_stat_stddev(stat) / 1000);
 	}
 }
 

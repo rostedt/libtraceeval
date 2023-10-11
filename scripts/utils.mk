@@ -101,7 +101,7 @@ extract_example =				\
 
 do_sample_build =							\
 	$(Q)($(print_sample_build)					\
-	$(CC) -o $1 $2 $(CFLAGS) $(LIBRARY_STATIC) $(LIBRARY_LIBS))
+	$(CC) -o $1 $2 $(CFLAGS) $(LIBRARY_STATIC) $(LIBRARY_LIBS) -lm)
 
 do_sample_obj =									\
 	$(Q)($(print_sample_obj)						\

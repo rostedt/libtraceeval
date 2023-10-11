@@ -9,6 +9,8 @@ OBJS += hash.o
 
 OBJS := $(OBJS:%.o=$(bdir)/%.o)
 
+LIBS = -lm
+
 $(LIBRARY_STATIC): $(OBJS)
 	$(Q)$(call do_build_static_lib)
 

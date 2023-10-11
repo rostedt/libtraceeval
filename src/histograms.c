@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <math.h>
 
 #include <traceeval.h>
 #include "eval-local.h"
@@ -623,6 +624,8 @@ __hidden void _teval_update_stat(struct traceeval_type *type,
 				 unsigned long long val,
 				 unsigned long long ts)
 {
+	double D;
+
 	/* If both the delta and the timestamp are zero, ignore this */
 	if (!val && !ts)
 		return;
@@ -633,6 +636,8 @@ __hidden void _teval_update_stat(struct traceeval_type *type,
 		stat->max_ts = ts;
 		stat->min_ts = ts;
 		stat->total = val;
+		stat->M = (double)val;
+		stat->M2 = 0.0;
 		return;
 	}
 
@@ -657,6 +662,14 @@ __hidden void _teval_update_stat(struct traceeval_type *type,
 		}
 		stat->total += val;
 	}
+	/*
+	 * Welford's method for standard deviation:
+	 *   s^2 = 1 / (n - 1) * \Sum ((x - M_k-1) * (x - M_k))
+	 *   Where M_k is the mean of the current samples of k.
+	 */
+	D = val - stat->M;
+	stat->M += D / stat->count;
+	stat->M2 += D * (val - stat->M);
 }
 
 static bool is_stat_type(struct traceeval_type *type)
@@ -1124,6 +1137,40 @@ unsigned long long traceeval_stat_min(struct traceeval_stat *stat)
 unsigned long long traceeval_stat_total(struct traceeval_stat *stat)
 {
 	return stat->total;
+}
+
+/**
+ * traceeval_stat_average - return the average value of stat
+ * @stat: The stat structure that holds the stats
+ *
+ * Returns the calculated average within @stat.
+ */
+unsigned long long traceeval_stat_average(struct traceeval_stat *stat)
+{
+	return stat->total / stat->count;
+}
+
+/**
+ * traceeval_stat_stddev - return the standard deviation of stat
+ * @stat: The stat structure that holds the stats
+ *
+ * Returns the calculated standard deviation within @stat.
+ */
+double traceeval_stat_stddev(struct traceeval_stat *stat)
+{
+	double stddev;
+
+	if (stat->count < 2)
+		return 0.0;
+	/*
+	 * Welford's method for standard deviation:
+	 *   s^2 = 1 / (n - 1) * \Sum ((x - M_k-1) * (x - M_k))
+	 *   Where M_k is the mean of the current samples of k.
+	 */
+
+	stddev = stat->M2 / (stat->count - 1);
+
+	return sqrt(stddev);
 }
 
 /**

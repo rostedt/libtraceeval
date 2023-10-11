@@ -56,7 +56,8 @@ struct traceeval_stat {
 	unsigned long long	min;
 	unsigned long long	min_ts;
 	unsigned long long	total;
-	unsigned long long	std;
+	double	M;
+	double	M2;
 	size_t			count;
 };
 

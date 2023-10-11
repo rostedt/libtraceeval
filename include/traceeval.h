@@ -345,6 +345,8 @@ unsigned long long traceeval_stat_max_timestamp(struct traceeval_stat *stat,
 						unsigned long long *ts);
 unsigned long long traceeval_stat_min_timestamp(struct traceeval_stat *stat,
 						unsigned long long *ts);
+unsigned long long traceeval_stat_average(struct traceeval_stat *stat);
+double traceeval_stat_stddev(struct traceeval_stat *stat);
 
 struct traceeval_iterator *traceeval_iterator_get(struct traceeval *teval);
 struct traceeval_iterator *traceeval_iterator_delta_start_get(struct traceeval *teval);
