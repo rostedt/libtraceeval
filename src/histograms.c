@@ -485,6 +485,7 @@ static void free_entry(struct traceeval *teval, struct entry *entry)
 
 	clean_data_set(entry->keys, teval->key_types, teval->nr_key_types);
 	clean_data_set(entry->vals, teval->val_types, teval->nr_val_types);
+	free(entry->val_stats);
 
 	free(entry);
 }
@@ -527,6 +528,7 @@ void traceeval_release(struct traceeval *teval)
 	if (!teval)
 		return;
 
+	__delta_release(teval->tdelta);
 	hist_table_release(teval);
 	type_release(teval->key_types, teval->nr_key_types);
 	type_release(teval->val_types, teval->nr_val_types);
