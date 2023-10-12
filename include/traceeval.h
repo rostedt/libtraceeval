@@ -303,10 +303,12 @@ int traceeval_delta_start_size(struct traceeval *teval,
 
 int traceeval_delta_query_size(struct traceeval *teval,
 			       const struct traceeval_data *keys,
-			       size_t nr_keys, const struct traceeval_data **results);
+			       size_t nr_keys, const struct traceeval_data **results,
+			       unsigned long long *timestamp);
 
-#define traceeval_delta_query(teval, keys, results)			\
-	traceeval_delta_query_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), results)
+#define traceeval_delta_query(teval, keys, results, timestamp)		\
+	traceeval_delta_query_size(teval, keys, TRACEEVAL_ARRAY_SIZE(keys), \
+				   results, timestamp)
 
 int traceeval_delta_continue_size(struct traceeval *teval,
 				  const struct traceeval_data *keys, size_t nr_keys,

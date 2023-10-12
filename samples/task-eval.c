@@ -173,7 +173,7 @@ int cpu_last_state(struct traceeval *teval, int cpu, int *state)
 
 	TRACEEVAL_SET_NUMBER(keys[0], cpu);
 
-	ret = traceeval_delta_query(teval, keys, &results);
+	ret = traceeval_delta_query(teval, keys, &results, NULL);
 	if (ret < 1)
 		return ret;
 

@@ -145,6 +145,7 @@ int traceeval_delta_remove_size(struct traceeval *teval,
  * @teval: The traceeval descriptor to search the traceeval_delta from
  * @keys: A list of data to look for
  * @results: A pointer to where to place the results (if found)
+ * @timestamp: A pointer to where to place the starting timestamp (if found)
  *
  * This does a lookup for an instance within the traceeval_delta.
  * The @keys is an array defined by the keys declared in traceeval_delta_init().
@@ -152,7 +153,11 @@ int traceeval_delta_remove_size(struct traceeval *teval,
  * inserted by traceeval_delta_start().
  *
  * The @results will hold the vals passed to the last traceeval_delta_start()
- * for the given @keys if found, or undefined if not.
+ * for the given @keys if found, or undefined if not. The current timestamp
+ * will be stored in @timestamp. Note it will be zero if the last call to
+ * @keys was traceeval_delta_stop().
+ *
+ * Both @results and @timestamp may be NULL if they are to be ignored.
  *
  * Note, when the caller is done with @results, it must call
  * traceeval_results_release() on it.
@@ -161,14 +166,34 @@ int traceeval_delta_remove_size(struct traceeval *teval,
  */
 int traceeval_delta_query_size(struct traceeval *teval,
 			       const struct traceeval_data *keys,
-			       size_t nr_keys, const struct traceeval_data **results)
+			       size_t nr_keys, const struct traceeval_data **results,
+			       unsigned long long *timestamp)
 {
+	const struct traceeval_data *tresults;
+	size_t ts_idx = teval->nr_val_types - 1;
+	int ret;
+
 	if (!teval->tdelta) {
 		teval_print_err(TEVAL_WARN, "traceeval_delta_query: traceeval does not have delta to query");
 		return -1;
 	}
-	return traceeval_query_size(teval->tdelta->teval, keys,
-				    nr_keys, results);
+	ret = traceeval_query_size(teval->tdelta->teval, keys,
+				 nr_keys, &tresults);
+	if (ret < 1)
+		return ret;
+
+	/*
+	 * Note, the timestamp is stored in the results, it's just that
+	 * the caller doesn't know about it.
+	 */
+	if (timestamp)
+		*timestamp = tresults[ts_idx].number_64;
+
+	if (results)
+		*results = tresults;
+	else
+		traceeval_results_release(teval, tresults);
+	return 1;
 }
 
 static int insert_vals(struct traceeval *teval, const struct traceeval_data *keys,
