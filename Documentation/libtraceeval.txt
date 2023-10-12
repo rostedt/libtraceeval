@@ -74,6 +74,8 @@ Functions to manage statistics of values of a traceeval:
 	unsigned long long *traceeval_stat_min_timestamp*(struct traceeval_stat pass:[*]_stat_, unsigned long long pass:[*]ts);
 	unsigned long long *traceeval_stat_total*(struct traceeval_stat pass:[*]_stat_);
 	unsigned long long *traceeval_stat_count*(struct traceeval_stat pass:[*]_stat_);
+	unsigned long long *traceeval_stat_average*(struct traceeval_stat pass:[*]_stat_);
+	double *traceeval_stat_stddev*(struct traceeval_stat pass:[*]_stat_);
 --
 
 DESCRIPTION

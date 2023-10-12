@@ -4,7 +4,8 @@ libtraceeval(3)
 NAME
 ----
 traceeval_stat, traceeval_stat_size, traceeval_stat_max, traceeval_stat_min, traceeval_stat_max_timestamp,
-traceeval_stat_min_timestamp, traceeval_stat_total, traceeval_stat_count - Get statistics of an elements value/key in a traceeval.
+traceeval_stat_min_timestamp, traceeval_stat_total, traceeval_stat_count,
+traceeval_stat_average, traceeval_stat_stddev - Get statistics of an elements value/key in a traceeval.
 
 SYNOPSIS
 --------
@@ -26,24 +27,19 @@ unsigned long long *traceeval_stat_max_timestamp*(struct traceeval_stat pass:[*]
 unsigned long long *traceeval_stat_min_timestamp*(struct traceeval_stat pass:[*]_stat_, unsigned long long pass:[*]ts);
 unsigned long long *traceeval_stat_total*(struct traceeval_stat pass:[*]_stat_);
 unsigned long long *traceeval_stat_count*(struct traceeval_stat pass:[*]_stat_);
+unsigned long long *traceeval_stat_average*(struct traceeval_stat pass:[*]_stat_);
+double *traceeval_stat_stddev*(struct traceeval_stat pass:[*]_stat_);
 --
 
 DESCRIPTION
 -----------
-If a type of a value is numeric (*TRACEEVAL_TYPE_NUMBERpass:[*]*) and has the
-*TRACEEVAL_FL_STAT* flag set, then every instance added will save the maximum,
-minimum, count and total for that value. These functions are used to retrieve
-that information.
-
-If one of the values has *TRACEEVAL_FL_TIMESTAMP* set, that value will also be used
-to record that value for when a maximum or minimum stat value is hit. Note that
-a value can not have both the *TRACEEVAL_FL_TIMESTAMP* and *TRACEEVAL_FL_STAT* flags set.
-That will cause an error when creating the traceeval via *traceeval_init*(3).
-Note that fields marked with *TRACEEVAL_FL_TIMESTAMP* must also be of the
-*TRACEEVAL_TYPE_NUMBERpass:[*]* types.
+If a type of a value is *TRACEEVAL_TYPE_DELTA* then every instance added will save the maximum,
+minimum, count, total and standard deviation for that value. The maximum and minimum values will also
+record the timestamp that is passed in with the delta and keep track of timestamp where
+the maximum or minimum delto occurred.
 
 The *traceeval_stat()* will return a struct traceeval_stat descriptor for the
-given field that is numeric and is marked as a stat type. The _teval_ is the
+given field that is a *TRACEEVAL_TYPE_DELTA* type. The _teval_ is the
 traceeval descriptor that contains the elements, the _keys_ are the keys to find
 the element to get the stats of the vals, and _val_name_ is the name of the value
 field to retrieve the stats from (this is the same name for the field passed to
@@ -63,11 +59,9 @@ the _stat_ descriptor passed in.
 
 The *traceeval_stat_max_timestamp()* and *traceeval_stat_min_timestamp()* functions
 return the same result as the *traceeval_stat_max()* and *traceeval_stat_min()* functions
-respectively, but they take another parameter. The _ts_ is a pointer to a unsigend long long that
+respectively, but they take another parameter. The _ts_ is a pointer to a unsigned long long that
 if not NULL, will be used to return the timestamp of when the maximum or minimum values
-respectively were retrieved. This only works if another field of the traceeval descriptor
-values was marked as *TRACEEVAL_FL_TIMESTAMP*. That field is saved when a new maximum or
-minimum is found.
+respectively were retrieved.
 
 The *traceeval_stat_total()* returns the sum of all the values of the field that the _stat_
 represents.
@@ -79,6 +73,51 @@ descriptor to remove an element, the *traceeval_count*(3) will return one less. 
 of elements does not affect the count of the traceeval_stat, and the same goes for
 the total count. The number returned from this function can safely be used against the number
 returned by *traceeval_stat_total()* to calculate the average.
+
+The *traceeval_stat_average()* returns the average mean of all the entries represented by _stat_.
+Note, this is just a helper function as the same could be calculated by:
+
+[verse]
+--
+  unsigned long long traceeval_stat_average(struct traceeval_stat *stat)
+  {
+          unsigned long long count = traceeval_stat_count(stat);
+
+          if (!count)
+                  return 0;
+          return traceeval_stat_total(stat) / count;
+  }
+--
+
+The *traceeval_stat_stddev()* returns the calculated standard deviation. The standard deviation
+is calculated via the Welford's method. That is, for every instance added, the following is
+performed:
+
+[verse]
+--
+  void add_value(unsigned long long delta, unsigned long long *count, double *M, double *M2)
+  {
+          double D;
+
+          (*count)++;
+          if (*count == 1) {
+                  *M = delta;
+                  *M2 = 0.0;
+                  return;
+          }
+          D = delta - *M;
+          (*M) += D / *count;
+          (*M2) += D * (val - *M);
+  }
+
+  double traceeval_stat_stddev(stat)
+  {
+          if (count < 2)
+                  return 0.0;
+
+          return sqrt(M2 / (count - 1));
+  }
+--
 
 RETURN VALUE
 ------------

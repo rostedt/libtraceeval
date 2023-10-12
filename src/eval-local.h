@@ -4,6 +4,10 @@
 
 #include <string.h>
 
+/* For possible future use */
+#define TRACEEVAL_FL_TIMESTAMP	TRACEEVAL_FL_RESERVE_3
+#define TRACEEVAL_FL_STAT	TRACEEVAL_FL_RESERVE_4
+
 #define __hidden __attribute__((visibility ("hidden")))
 #define __weak __attribute__((weak))
 

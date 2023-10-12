@@ -59,8 +59,8 @@ enum traceeval_flags {
 	TRACEEVAL_FL_KEY		= (1 << 0),
 	TRACEEVAL_FL_VALUE		= (1 << 1),
 	TRACEEVAL_FL_SIGNED		= (1 << 2),
-	TRACEEVAL_FL_TIMESTAMP		= (1 << 3),
-	TRACEEVAL_FL_STAT		= (1 << 4),
+	TRACEEVAL_FL_RESERVE_3		= (1 << 3),
+	TRACEEVAL_FL_RESERVE_4		= (1 << 4),
 };
 
 enum traceeval_log_level {
