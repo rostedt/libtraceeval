@@ -23,14 +23,12 @@ struct traceeval_delta {
 #define TEVAL_TIMESTAMP_NAME	"__TRACEEVAL_DELTA_TIMESTAMP__"
 
 /**
- * traceeval_delta_create_data_size - create a delta for a teval
+ * traceeval_delta_create_size - create a delta for a teval
  * @teval: The traceeval to create a delta query for
  * @keys: Defines the keys to differentiate traceeval delta entries
  * @vals: Defines values attached to entries differentiated by @keys.
  * @nr_keys: The number of @keys passed in
  * @nr_vals: The number of @vals passed in
- * @sizeof_type: The size of struct traceeval_type
- * @sizeof_data: The size of struct traceeval_data
  *
  * This adds a specialized internal traceeval descriptor to @teval.
  * This descriptor is used to find the start and stop timings between
@@ -44,13 +42,11 @@ struct traceeval_delta {
  *
  * Returns 0 on success and -1 on error.
  */
-int traceeval_delta_create_data_size(struct traceeval *teval,
-				     struct traceeval_type *keys,
-				     struct traceeval_type *vals,
-				     size_t nr_keys,
-				     size_t nr_vals,
-				     size_t sizeof_type,
-				     size_t sizeof_data)
+int traceeval_delta_create_size(struct traceeval *teval,
+				struct traceeval_type *keys,
+				struct traceeval_type *vals,
+				size_t nr_keys,
+				size_t nr_vals)
 {
 	struct traceeval_type *delta_vals;
 	struct traceeval_type *val;
@@ -90,9 +86,8 @@ int traceeval_delta_create_data_size(struct traceeval *teval,
 	val->name = TEVAL_TIMESTAMP_NAME;
 	val->type = TRACEEVAL_TYPE_NUMBER_64;
 
-	tdelta->teval = traceeval_init_data_size(keys, delta_vals, nr_keys,
-						 nr_vals, sizeof_type,
-						 sizeof_data);
+	tdelta->teval = traceeval_init_size(keys, delta_vals, nr_keys, nr_vals);
+
 	/* The delta_vals are no longer needed */
 	free(delta_vals);
 

@@ -287,17 +287,10 @@ size_t traceeval_count(struct traceeval *teval);
 				  TRACEEVAL_ARRAY_SIZE(keys),		\
 				  TRACEEVAL_ARRAY_SIZE(vals))
 
-#define traceeval_delta_create_size(teval, keys, vals, nr_keys, nr_vals) \
-	traceeval_delta_create_data_size(teval, keys, vals, nr_keys, nr_vals, \
-				       sizeof(struct traceeval_type),	\
-				       sizeof(struct traceeval_data))
-
-int traceeval_delta_create_data_size(struct traceeval *teval,
-				     struct traceeval_type *keys,
-				     struct traceeval_type *vals,
-				     size_t nr_keys, size_t nr_vals,
-				     size_t sizeof_type,
-				     size_t sizeof_data);
+int traceeval_delta_create_size(struct traceeval *teval,
+				struct traceeval_type *keys,
+				struct traceeval_type *vals,
+				size_t nr_keys, size_t nr_vals);
 
 int traceeval_delta_start_size(struct traceeval *teval,
 			       const struct traceeval_data *keys, size_t nr_keys,
