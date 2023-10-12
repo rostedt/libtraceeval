@@ -109,25 +109,7 @@ EXAMPLE
 #include <trace-cmd.h>
 #include <traceeval.h>
 
-struct data {
-	struct traceeval		*teval_wakeup;
-	struct traceeval		*teval_sched;
-};
-
-struct traceeval_type wakeup_keys[] = {
-	{
-		.name		= "PID",
-		.type		= TRACEEVAL_TYPE_NUMBER,
-	}
-};
-
-struct traceeval_type wakeup_vals[] = {
-	{
-		.name		= "timestamp",
-		.flags		= TRACEEVAL_FL_TIMESTAMP,
-		.type		= TRACEEVAL_TYPE_NUMBER_64,
-	}
-};
+#define DELTA_NAME "delta"
 
 struct traceeval_type sched_keys[] = {
 	{
@@ -142,26 +124,27 @@ struct traceeval_type sched_keys[] = {
 
 struct traceeval_type sched_vals[] = {
 	{
-		.name		= "timestamp",
-		.flags		= TRACEEVAL_FL_TIMESTAMP,
-		.type		= TRACEEVAL_TYPE_NUMBER_64,
-	},
-	{
-		.name		= "delta",
-		.flags		= TRACEEVAL_FL_STAT,
-		.type		= TRACEEVAL_TYPE_NUMBER_64,
+		.name		= DELTA_NAME,
+		.type		= TRACEEVAL_TYPE_DELTA,
 	}
 };
 
+struct traceeval_type delta_keys[] = {
+	{
+		.name		= "PID",
+		.type		= TRACEEVAL_TYPE_NUMBER,
+	}
+};
+
+
 static int wakeup_callback(struct tracecmd_input *handle, struct tep_event *event,
-			   struct tep_record *record, int cpu, void *d)
+			   struct tep_record *record, int cpu, void *data)
 {
 	static struct tep_format_field *pid_field;
-	struct data *data = d;
+	struct traceeval_data keys[1];
+	struct traceeval *teval = data;
 	unsigned long long val;
 	long pid;
-	struct traceeval_data keys[1];
-	struct traceeval_data vals[1];
 
 	if (!pid_field)
 		pid_field = tep_find_field(event, "pid");
@@ -170,26 +153,24 @@ static int wakeup_callback(struct tracecmd_input *handle, struct tep_event *even
 	pid = val;
 
 	TRACEEVAL_SET_NUMBER(keys[0], pid);
-	TRACEEVAL_SET_NUMBER_64(vals[0], record->ts);
 
-	traceeval_insert(data->teval_wakeup, keys, vals);
+	traceeval_delta_start(teval, keys, NULL, record->ts);
 
 	return 0;
 }
 
 static int sched_callback(struct tracecmd_input *handle, struct tep_event *event,
-			   struct tep_record *record, int cpu, void *d)
+			   struct tep_record *record, int cpu, void *data)
 {
 	static struct tep_format_field *next_pid_field;
 	static struct tep_format_field *next_comm_field;
-	struct data *data = d;
+	struct traceeval_data delta_keys[1];
+	struct traceeval_data keys[2];
+	struct traceeval_data vals[1];
+	struct traceeval *teval = data;
 	unsigned long long delta;
 	unsigned long long val;
 	long pid;
-	struct traceeval_data wakeup_keys[1];
-	struct traceeval_data keys[2];
-	struct traceeval_data vals[2];
-	const struct traceeval_data *results;
 
 	if (!next_pid_field) {
 		next_pid_field = tep_find_field(event, "next_pid");
@@ -199,28 +180,24 @@ static int sched_callback(struct tracecmd_input *handle, struct tep_event *event
 	tep_read_number_field(next_pid_field, record->data, &val);
 	pid = val;
 
-	TRACEEVAL_SET_NUMBER(wakeup_keys[0], pid);
+	TRACEEVAL_SET_NUMBER(delta_keys[0], pid);
 
-	if (traceeval_query(data->teval_wakeup, wakeup_keys, &results) <= 0)
+	if (traceeval_delta_stop(teval, delta_keys, NULL, record->ts, &delta, NULL) < 1)
 		return 0;
 
-	delta = record->ts - results[0].number_64;
-	traceeval_results_release(data->teval_wakeup, results);
-
-	TRACEEVAL_SET_CSTRING(keys[0], record->data + next_comm_field->offset);
+	TRACEEVAL_SET_CSTRING(keys[0], (char *)record->data + next_comm_field->offset);
 	TRACEEVAL_SET_NUMBER(keys[1], pid);
 
-	TRACEEVAL_SET_NUMBER_64(vals[0], record->ts);
-	TRACEEVAL_SET_NUMBER_64(vals[1], delta);
+	TRACEEVAL_SET_DELTA(vals[0], delta, record->ts);
 
-	traceeval_insert(data->teval_sched, keys, vals);
+	traceeval_insert(teval, keys, vals);
 
 	return 0;
 }
 
-static void show_latency(struct data *data)
+static void show_latency(struct traceeval *teval)
 {
-	struct traceeval_iterator *iter = traceeval_iterator_get(data->teval_sched);
+	struct traceeval_iterator *iter = traceeval_iterator_get(teval);
 	const struct traceeval_data *keys;
 
 	printf("\n");
@@ -229,7 +206,7 @@ static void show_latency(struct data *data)
 		unsigned long long val;
 		unsigned long long ts;
 
-		stat = traceeval_iterator_stat(iter, sched_vals[1].name);
+		stat = traceeval_iterator_stat(iter, DELTA_NAME);
 		if (!stat)
 			continue;
 
@@ -251,15 +228,15 @@ static void show_latency(struct data *data)
 int main (int argc, char **argv)
 {
 	struct tracecmd_input *handle;
-	struct data data;
+	struct traceeval *teval;
 
 	if (argc < 2) {
 		printf("usage: wake-lat trace.dat\n");
 		exit(-1);
 	}
 
-	data.teval_wakeup = traceeval_init(wakeup_keys, wakeup_vals);
-	data.teval_sched = traceeval_init(sched_keys, sched_vals);
+	teval = traceeval_init(sched_keys, sched_vals);
+	traceeval_delta_create(teval, delta_keys, NULL);
 
 	handle = tracecmd_open(argv[1], TRACECMD_FL_LOAD_NO_PLUGINS);
 	if (!handle) {
@@ -267,12 +244,14 @@ int main (int argc, char **argv)
 		exit(-1);
 	}
 
-	tracecmd_follow_event(handle, "sched", "sched_waking", wakeup_callback, &data);
-	tracecmd_follow_event(handle, "sched", "sched_switch", sched_callback, &data);
+	tracecmd_follow_event(handle, "sched", "sched_waking", wakeup_callback, teval);
+	tracecmd_follow_event(handle, "sched", "sched_switch", sched_callback, teval);
 
 	tracecmd_iterate_events(handle, NULL, 0, NULL, NULL);
 
-	show_latency(&data);
+	show_latency(teval);
+
+	traceeval_release(teval);
 
 	return 0;
 }

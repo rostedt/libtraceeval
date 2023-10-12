@@ -157,6 +157,8 @@ EXAMPLE
 #include <tracefs.h>
 #include <traceeval.h>
 
+#define DELTA_NAME "delta"
+
 struct data {
 	struct traceeval		*teval_wakeup;
 	struct traceeval		*teval_sched;
@@ -172,7 +174,6 @@ struct traceeval_type wakeup_keys[] = {
 struct traceeval_type wakeup_vals[] = {
 	{
 		.name		= "timestamp",
-		.flags		= TRACEEVAL_FL_TIMESTAMP,
 		.type		= TRACEEVAL_TYPE_NUMBER_64,
 	}
 };
@@ -190,14 +191,8 @@ struct traceeval_type sched_keys[] = {
 
 struct traceeval_type sched_vals[] = {
 	{
-		.name		= "timestamp",
-		.flags		= TRACEEVAL_FL_TIMESTAMP,
-		.type		= TRACEEVAL_TYPE_NUMBER_64,
-	},
-	{
-		.name		= "delta",
-		.flags		= TRACEEVAL_FL_STAT,
-		.type		= TRACEEVAL_TYPE_NUMBER_64,
+		.name		= DELTA_NAME,
+		.type		= TRACEEVAL_TYPE_DELTA,
 	}
 };
 
@@ -234,7 +229,7 @@ static int sched_callback(struct tep_event *event, struct tep_record *record, in
 	long pid;
 	struct traceeval_data wakeup_keys[1];
 	struct traceeval_data keys[2];
-	struct traceeval_data vals[2];
+	struct traceeval_data vals[1];
 	const struct traceeval_data *results;
 
 	if (!next_pid_field) {
@@ -253,11 +248,10 @@ static int sched_callback(struct tep_event *event, struct tep_record *record, in
 	delta = record->ts - results[0].number_64;
 	traceeval_results_release(data->teval_wakeup, results);
 
-	TRACEEVAL_SET_CSTRING(keys[0], record->data + next_comm_field->offset);
+	TRACEEVAL_SET_CSTRING(keys[0], (char *)record->data + next_comm_field->offset);
 	TRACEEVAL_SET_NUMBER(keys[1], pid);
 
-	TRACEEVAL_SET_NUMBER_64(vals[0], record->ts);
-	TRACEEVAL_SET_NUMBER_64(vals[1], delta);
+	TRACEEVAL_SET_DELTA(vals[0], delta, record->ts);
 
 	traceeval_insert(data->teval_sched, keys, vals);
 
@@ -292,7 +286,7 @@ static void show_latency(struct data *data)
 	while (traceeval_iterator_next(iter, &keys) > 0) {
 		struct traceeval_stat *stat;
 
-		stat = traceeval_iterator_stat(iter, sched_vals[1].name);
+		stat = traceeval_iterator_stat(iter, DELTA_NAME);
 		if (!stat)
 			continue;
 
@@ -355,6 +349,9 @@ int main (int argc, char **argv)
 	tracefs_instance_free(instance);
 
 	show_latency(&data);
+
+	traceeval_release(data.teval_wakeup);
+	traceeval_release(data.teval_sched);
 
 	return 0;
 }
