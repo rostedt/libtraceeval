@@ -1,0 +1,470 @@
+libtraceeval(3)
+===============
+
+NAME
+----
+traceeval_delta_create, traceeval_delta_create_size,
+traceeval_delta_start, traceeval_delta_start_size, traceeval_delta_stop,
+traceeval_delta_stop_size, traceeval_delta_continue, traceeval_delta_continue_size
+- Create and start/stop a traceeval_delta instance
+
+SYNOPSIS
+--------
+[verse]
+--
+*#include <traceeval.h>*
+
+int *traceeval_delta_create*(struct traceeval pass:[*]_teval_,
+			     struct traceeval_type pass:[*]_keys_,
+			     struct traceeval_type pass:[*]_vals_);
+int *traceeval_delta_create_size*(struct traceeval pass:[*]_teval_,
+				struct traceeval_type pass:[*]_keys_,
+				struct traceeval_type pass:[*]_vals_,
+				size_t _nr_keys_, size_t _nr_vals_);
+
+int *traceeval_delta_start*(struct traceeval pass:[*]_teval_,
+		  const struct traceeval_data pass:[*]_keys_,
+		  const struct traceeval_data pass:[*]_vals_,
+		  unsigned long long _timestamp_);
+int *traceeval_delta_start_size*(struct traceeval pass:[*]_teval_,
+		       const struct traceeval_data pass:[*]_keys_, size_t _nr_keys_,
+		       const struct traceeval_data pass:[*]_vals_, size_t _nr_vals_,
+		       unsigned long long _timestamp_);
+
+int *traceeval_delta_stop*(struct traceeval pass:[*]_teval_,
+			 const struct traceeval_data pass:[*]_keys_,
+			 const struct traceeval_data pass:[**]_results_,
+			 unsigned long long _timestamp_,
+			 unsigned long long *_delta_,
+			 unsigned long long *_start_timestamp_);
+int *traceeval_delta_stop_size*(struct traceeval pass:[*]_teval_,
+			      const struct traceeval_data pass:[*]_keys_, size_t _nr_keys_,
+			      const struct traceeval_data pass:[**]_results_,
+			      unsigned long long _timestamp_,
+			      unsigned long long *_delta_,
+			      unsigned long long *_start_timestamp_);
+
+int *traceeval_delta_continue*(struct traceeval pass:[*]_teval_,
+			     const struct traceeval_data pass:[*]_keys_,
+			     const struct traceeval_data pass:[*]_vals_,
+			     unsigned long long _timestamp_);
+int *traceeval_delta_continue_size*(struct traceeval pass:[*]_teval_,
+				  const struct traceeval_data pass:[*]keys, size_t _nr_keys_,
+				  const struct traceeval_data pass:[*]_vals_, size_t _nr_vals_,
+				  unsigned long long _timestamp_);
+--
+
+DESCRIPTION
+-----------
+The traceeval handles mapping keys and values for various events. One common use case
+is to attach two events together to create a delta between their associated timestamps
+and insert that information into a traceeval along with information from both the
+starting event as well as the ending event.
+
+Since the above is very common, the traceeval_delta is used to facilitate this approach.
+The traceeval_delta is a specialized traceeval that is designed to keep track of
+the timestamps and deltas and pass values from the starting event to the stopping event.
+
+The *traceeval_delta_create()* creates a helper to the attached _teval_. It
+takes _keys_ and _vals_ just like *traceeval_init*(3) but these _keys_ and _vals_
+are unrelated to the keys and vals associated to the attached _teval_. The _keys_
+are used to map fields of two events to be able to match a stopping event to the
+corresponding starting event. The _vals_ is used to store data from the starting
+event to pass over to the stopping event that can then be used to add information
+to the _teval_.
+
+The _keys_ and _vals_ passed to *traceeval_delta_create()* must be a static array. If
+dynamically sized arrays are to be required, then *traceeval_delta_create_size()* can be
+used and the caller can pass in _nr_keys_ to denote how many _keys_ are being passed in
+as well as _nr_vals_ to denote how many _vals_ are passed in (0 for NULL).
+
+When the starting event is encountered, *traceeval_delta_start()* is called with the
+associated _teval_ and _keys_ that hold information about the starting event that will
+be used to map this event to the stopping event. The _vals_ array will hold any
+data about the starting event that should be passed to the ending event (or NULL if
+unused). The _timestamp_ denotes the time that this event happened. The _timestamp_
+will be used at the stopping event to calculate a delta between the two events.
+
+When the stopping event is encountered, *traceeval_delta_stop()* is called with
+the associated _teval_ and _keys_ that hold an array of fields that are to match
+the keys passed to *traceeval_delta_start()*. If vals were specified for the delta
+element, then _results_ will hold an array that has the data stored into the vals
+array of *traceeval_delta_start()*. The _timestamp_ holds the time of the stopping
+event and will be used for calculating _delta_, as _delta_ is simply the timestamp
+passed to *traceeval_delta_start()* subtracted from _timestamp_. The timestamp
+from the starting event will be stored in _start_timestamp_. Note, that _delta_,
+_results_ and _start_timestamp_ are all optional and may be NULL if not needed.
+
+There's some cases where there may be more than one starting event, and the first
+starting event is to be required for starting the timings and any new starting event
+that happens before an ending event occurs should be ignored. In this case,
+*traceeval_delta_continue()* is used. It acts the same as *traceeval_delta_start()*
+except that if the matching _keys_ have not encountered a *traceeval_delta_stop()*
+since a previous *traceeval_delta_start()* or *traceeval_delta_continue()* then
+it will simply be ignored (Both the _timestamp_ and the _vals_ will be dropped).
+
+To describe one use case for this, if the runtime of a CPU is being recorded,
+and anytime a task is scheduled on the CPU, it is considered a starting event,
+but the delta should only be used when the CPU switches from idle to a running task,
+*traceeval_delta_continue()* can be used whenever a task is scheduled on the CPU
+and *traceeval_delta_stop()* can be used when the CPU goes idle. Only the first
+occurrence of a task scheduling on the CPU will start the timing. If a task
+is scheduled on the CPU when another task was already running, no update should
+be made. If *traceeval_delta_start()* is used, the timestamp of the start event
+will be that of the time the new task came onto the CPU preempting the previous
+task and that would only show the runtime of the last task and not how long the
+CPU itself was running tasks.
+
+*traceeval_delta_start()*, *traceeval_delta_stop()* and *traceeval_delta_continue()*
+must have their _keys_ and _vals_ be static arrays. If a dynamic array is required
+then their corresponding functions that end with "*_size()*" must be used to
+specify the size of _keys_ with _nr_keys_ and _vals_ with _nr_vals_.
+
+RETURN VALUE
+------------
+The *traceeval_delta_create()* and *traceeval_delta_create_size()* both return a 0
+on success and -1 on error.
+
+The *traceeval_delta_start()*, *traceeval_delta_start_size()*, *traceeval_delta_continue()*
+and *traceeval_delta_continue_size()* return 0 on success and -1 on error.
+
+The *traceeval_delta_stop()* and *traceeval_delta_stop_size()* return 1 if there was
+a corresponding start event found via the passed in _keys_, 0 if a corresponding
+event was not found and -1 on error.
+
+EXAMPLE
+-------
+[source,c]
+--
+#include <trace-cmd.h>
+#include <traceeval.h>
+
+static struct traceeval_type task_delta_types[] = {
+	{
+		.name		= "PID",
+		.type		= TRACEEVAL_TYPE_NUMBER,
+	}
+};
+
+static struct traceeval_type task_delta_val_types[] = {
+	{
+		.name		= "COMM",
+		.type		= TRACEEVAL_TYPE_STRING,
+	}
+};
+
+static void start_task(struct traceeval *teval, int pid, const char *comm,
+		       unsigned long long ts)
+{
+	struct traceeval_data keys[1];
+	struct traceeval_data vals[1];
+
+	TRACEEVAL_SET_NUMBER(keys[0], pid);
+	TRACEEVAL_SET_CSTRING(vals[0], comm);
+
+	if (traceeval_delta_start(teval, keys, vals, ts) < 0)
+		printf("FAILED\n");
+}
+
+static int stop_task(struct traceeval *teval, int pid, const char **comm,
+		     unsigned long long ts, unsigned long long *delta)
+{
+	const struct traceeval_data *results;
+	struct traceeval_data keys[1];
+	int ret;
+
+	TRACEEVAL_SET_NUMBER(keys[0], pid);
+
+	ret = traceeval_delta_stop(teval, keys, &results, ts, delta, NULL);
+	if (ret < 1)
+		return ret;
+
+	if (comm)
+		*comm = results[0].string;
+
+	traceeval_results_release(teval, results);
+	return 1;
+}
+
+static struct traceeval_type task_types[] = {
+	{
+		.name		= "COMM",
+		.type		= TRACEEVAL_TYPE_STRING,
+	},
+	{
+		.name		= "PID",
+		.type		= TRACEEVAL_TYPE_NUMBER,
+	}
+};
+
+static void insert_task(struct traceeval *teval, const char *comm, int pid,
+		       unsigned long long delta, unsigned long long ts)
+{
+	struct traceeval_data keys[2];
+	struct traceeval_data vals[1];
+
+	TRACEEVAL_SET_CSTRING(keys[0], comm);
+	TRACEEVAL_SET_NUMBER(keys[1], pid);
+
+	TRACEEVAL_SET_DELTA(vals[0], delta, ts);
+
+	traceeval_insert(teval, keys, vals);
+}
+
+static struct traceeval_type cpu_delta_types[] = {
+	{
+		.name		= "CPU",
+		.type		= TRACEEVAL_TYPE_NUMBER,
+	}
+};
+
+static void start_cpu(struct traceeval *teval, int cpu, unsigned long long ts)
+{
+	struct traceeval_data keys[1];
+
+	TRACEEVAL_SET_NUMBER(keys[0], cpu);
+
+	if (traceeval_delta_continue(teval, keys, NULL, ts) < 0)
+		printf("FAILED\n");
+}
+
+static int stop_cpu(struct traceeval *teval, int cpu,
+		    unsigned long long ts, unsigned long long *delta)
+{
+	struct traceeval_data keys[1];
+	int ret;
+
+	TRACEEVAL_SET_NUMBER(keys[0], cpu);
+
+	ret = traceeval_delta_stop(teval, keys, NULL, ts, delta, NULL);
+	if (ret < 1)
+		return ret;
+	return 1;
+}
+
+static struct traceeval_type cpu_types[] = {
+	{
+		.name		= "CPU",
+		.type		= TRACEEVAL_TYPE_NUMBER,
+	}
+};
+
+static struct traceeval_type delta_type[] = {
+	{
+		.name		= "delta",
+		.type		= TRACEEVAL_TYPE_DELTA,
+	}
+};
+
+static void insert_cpu(struct traceeval *teval, int cpu,
+		       unsigned long long delta, unsigned long long ts)
+{
+	struct traceeval_data keys[1];
+	struct traceeval_data vals[1];
+
+	TRACEEVAL_SET_NUMBER(keys[0], cpu);
+
+	TRACEEVAL_SET_DELTA(vals[0], delta, ts);
+
+	traceeval_insert(teval, keys, vals);
+}
+
+struct data {
+	struct traceeval		*teval_tasks;
+	struct traceeval		*teval_cpus;
+};
+
+static struct tep_format_field *get_field(struct tep_event *event, const char *name)
+{
+	static struct tep_format_field *field;
+
+	field = tep_find_field(event, name);
+	if (!field) {
+		fprintf(stderr, "Could not find field %s for %s", name, event->name);
+		exit(-1);
+	}
+
+	return field;
+}
+
+static int switch_func(struct tracecmd_input *handle, struct tep_event *event,
+		       struct tep_record *record, int cpu, void *d)
+{
+	static struct tep_format_field *next_comm;
+	static struct tep_format_field *prev_pid;
+	static struct tep_format_field *next_pid;
+	struct data *data = d;
+	unsigned long long delta;
+	unsigned long long val;
+	const char *comm;
+	int ret;
+
+	if (!next_comm) {
+		prev_pid = get_field(event, "prev_pid");
+
+		next_comm = get_field(event, "next_comm");
+		next_pid = get_field(event, "next_pid");
+	}
+
+	tep_read_number_field(prev_pid, record->data, &val);
+
+	if (val) {
+		ret = stop_task(data->teval_tasks, val, &comm, record->ts, &delta);
+		if (ret > 0)
+			insert_task(data->teval_tasks, comm, val, delta, record->ts);
+	}
+
+	tep_read_number_field(next_pid, record->data, &val);
+
+	if (val) {
+		comm = record->data + next_comm->offset;
+		start_task(data->teval_tasks, val, comm, record->ts);
+		start_cpu(data->teval_cpus, record->cpu, record->ts);
+		return 0;
+	}
+
+	ret = stop_cpu(data->teval_cpus, record->cpu, record->ts, &delta);
+	if (ret > 0)
+		insert_cpu(data->teval_cpus, record->cpu, delta, record->ts);
+
+	return 0;
+}
+
+static void print_microseconds(int idx, unsigned long long nsecs)
+{
+	unsigned long long usecs;
+
+	usecs = nsecs / 1000;
+	if (!nsecs || usecs)
+		printf("%*lld", idx, usecs);
+	else
+		printf("%*d.%03lld", idx, 0, nsecs);
+}
+
+static void print_stat(struct traceeval_stat *stat)
+{
+	unsigned long long average;
+	unsigned long long total;
+	unsigned long long cnt;
+	unsigned long long ts;
+	double stddev;
+
+	printf("\tmax: ");
+	print_microseconds(12, traceeval_stat_max_timestamp(stat, &ts));
+	printf("  timestamp: ");
+	print_microseconds(10, ts);
+	printf("\n\tmin: ");
+	print_microseconds(12, traceeval_stat_min_timestamp(stat, &ts));
+	printf("  timestamp: ");
+	print_microseconds(10, ts);
+	printf("\n\ttotal: ");
+	total = traceeval_stat_total(stat);
+	print_microseconds(10, total);
+	cnt = traceeval_stat_count(stat);
+	printf("\n\tcount: %*lld\n", 10, cnt);
+	average = traceeval_stat_average(stat);
+	printf("\taverage: ");
+	print_microseconds(8, average);
+	stddev = traceeval_stat_stddev(stat);
+	printf("\n\tstddev: %*.3f\n", 13, stddev / 1000);
+}
+
+static void display_cpus(struct traceeval *teval)
+{
+	struct traceeval_iterator *iter = traceeval_iterator_get(teval);
+	const struct traceeval_data *keys;
+
+	printf("\n");
+
+	traceeval_iterator_sort(iter, cpu_types[0].name, 0, true);
+
+	while (traceeval_iterator_next(iter, &keys) > 0) {
+		struct traceeval_stat *stat;
+
+		stat = traceeval_iterator_stat(iter, delta_type[0].name);
+
+		printf("CPU [%zd]:\n", keys[0].number);
+		print_stat(stat);
+	}
+	traceeval_iterator_put(iter);
+}
+
+static void display_tasks(struct traceeval *teval)
+{
+	struct traceeval_iterator *iter = traceeval_iterator_get(teval);
+	const struct traceeval_data *keys;
+
+	printf("\n");
+
+	traceeval_iterator_sort(iter, task_types[0].name, 0, true);
+	traceeval_iterator_sort(iter, task_types[1].name, 1, true);
+
+	while (traceeval_iterator_next(iter, &keys) > 0) {
+		struct traceeval_stat *stat;
+
+		stat = traceeval_iterator_stat(iter, delta_type[0].name);
+
+		printf("Task %s [%zd]:\n", keys[0].cstring, keys[1].number);
+		print_stat(stat);
+	}
+	traceeval_iterator_put(iter);
+};
+
+int main (int argc, char **argv)
+{
+	struct tracecmd_input *handle;
+	struct data data;
+
+	if (argc < 2) {
+		printf("Need to pass trace.dat file to this\n");
+		exit(-1);
+	}
+
+	handle = tracecmd_open(argv[1], TRACECMD_FL_LOAD_NO_PLUGINS);
+
+	data.teval_tasks = traceeval_init(task_types, delta_type);
+	traceeval_delta_create(data.teval_tasks, task_delta_types, task_delta_val_types);
+	data.teval_cpus = traceeval_init(cpu_types, delta_type);
+	traceeval_delta_create(data.teval_cpus, cpu_delta_types, NULL);
+
+	tracecmd_follow_event(handle, "sched", "sched_switch", switch_func, &data);
+	tracecmd_iterate_events(handle, NULL, 0, NULL, NULL);
+
+	display_cpus(data.teval_cpus);
+	display_tasks(data.teval_tasks);
+
+	traceeval_release(data.teval_cpus);
+	traceeval_release(data.teval_tasks);
+
+	return 0;
+}
+--
+
+FILES
+-----
+[verse]
+--
+*traceval.h*
+	Header file to include in order to have access to the library APIs.
+*-ltraceeval*
+	Linker switch to add when building a program that uses the library.
+--
+
+SEE ALSO
+--------
+*libtraceeval*(3)
+
+AUTHOR
+------
+[verse]
+--
+*Steven Rostedt* <rostedt@goodmis.org>, author of *libtraceeval*.
+--
+REPORTING BUGS
+--------------
+Report bugs to  <linux-trace-devel@vger.kernel.org>
+
+LICENSE
+-------
+libtraceeval is licensed under MIT.
+

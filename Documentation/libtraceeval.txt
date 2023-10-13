@@ -76,6 +76,46 @@ Functions to manage statistics of values of a traceeval:
 	unsigned long long *traceeval_stat_count*(struct traceeval_stat pass:[*]_stat_);
 	unsigned long long *traceeval_stat_average*(struct traceeval_stat pass:[*]_stat_);
 	double *traceeval_stat_stddev*(struct traceeval_stat pass:[*]_stat_);
+
+Handling delta times between events:
+	int *traceeval_delta_create*(struct traceeval pass:[*]_teval_,
+			     struct traceeval_type pass:[*]_keys_,
+			     struct traceeval_type pass:[*]_vals_);
+	int *traceeval_delta_create_size*(struct traceeval pass:[*]_teval_,
+				struct traceeval_type pass:[*]_keys_,
+				struct traceeval_type pass:[*]_vals_,
+				size_t _nr_keys_, size_t _nr_vals_);
+
+	int *traceeval_delta_start*(struct traceeval pass:[*]_teval_,
+		  const struct traceeval_data pass:[*]_keys_,
+		  const struct traceeval_data pass:[*]_vals_,
+		  unsigned long long _timestamp_);
+	int *traceeval_delta_start_size*(struct traceeval pass:[*]_teval_,
+		       const struct traceeval_data pass:[*]_keys_, size_t _nr_keys_,
+		       const struct traceeval_data pass:[*]_vals_, size_t _nr_vals_,
+		       unsigned long long _timestamp_);
+
+	int *traceeval_delta_stop*(struct traceeval pass:[*]_teval_,
+			 const struct traceeval_data pass:[*]_keys_,
+			 const struct traceeval_data pass:[**]_results_,
+			 unsigned long long _timestamp_,
+			 unsigned long long *_delta_,
+			 unsigned long long *_start_timestamp_);
+	int *traceeval_delta_stop_size*(struct traceeval pass:[*]_teval_,
+			      const struct traceeval_data pass:[*]_keys_, size_t _nr_keys_,
+			      const struct traceeval_data pass:[**]_results_,
+			      unsigned long long _timestamp_,
+			      unsigned long long *_delta_,
+			      unsigned long long *_start_timestamp_);
+
+	int *traceeval_delta_continue*(struct traceeval pass:[*]_teval_,
+			     const struct traceeval_data pass:[*]_keys_,
+			     const struct traceeval_data pass:[*]_vals_,
+			     unsigned long long _timestamp_);
+	int *traceeval_delta_continue_size*(struct traceeval pass:[*]_teval_,
+				  const struct traceeval_data pass:[*]keys, size_t _nr_keys_,
+				  const struct traceeval_data pass:[*]_vals_, size_t _nr_vals_,
+				  unsigned long long _timestamp_);
 --
 
 DESCRIPTION
