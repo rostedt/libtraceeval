@@ -116,6 +116,20 @@ Handling delta times between events:
 				  const struct traceeval_data pass:[*]keys, size_t _nr_keys_,
 				  const struct traceeval_data pass:[*]_vals_, size_t _nr_vals_,
 				  unsigned long long _timestamp_);
+
+Handling reading the deltas of a traceeval_delta:
+	struct traceeval_stat pass:[*]*traceeval_delta_stat*(struct traceeval_delta pass:[*]_tdelta_,
+						 const struct traceeval_data pass:[*]_keys_)
+	struct traceeval_stat pass:[*]*traceeval_delta_stat_size*(struct traceeval_delta pass:[*]_tdelta_,
+						 const struct traceeval_data pass:[*]_keys_,
+						 size_t _nr_keys_);
+
+	struct traceeval pass:[*]*traceeval_delta_teval_get*(struct traceeval_delta pass:[*]_tdelta_);
+
+	void *traceeval_delta_teval_put*(struct traceeval_delta pass:[*]_tdelta_,
+			       struct traceeval pass:[*]_teval_);
+
+	struct traceeval_stat pass:[*]*traceeval_iterator_delta_stat*(struct traceeval_iterator pass:[*]_iter_);
 --
 
 DESCRIPTION
