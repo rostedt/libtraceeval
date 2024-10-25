@@ -97,6 +97,24 @@ struct traceeval_data {
 	};
 };
 
+#define __TRACEEVAL_DECLARE(data_type, data_name)			\
+	{  .type = TRACEEVAL_TYPE_##data_type, .name = (data_name) }
+
+#define DECLARE_TRACEEVAL_NUMBER(data)	   __TRACEEVAL_DECLARE(NUMBER, data)
+#define DECLARE_TRACEEVAL_NUMBER_8(data)   __TRACEEVAL_DECLARE(NUMBER_8, data)
+#define DECLARE_TRACEEVAL_NUMBER_16(data)  __TRACEEVAL_DECLARE(NUMBER_16, data)
+#define DECLARE_TRACEEVAL_NUMBER_32(data)  __TRACEEVAL_DECLARE(NUMBER_32, data)
+#define DECLARE_TRACEEVAL_NUMBER_64(data)  __TRACEEVAL_DECLARE(NUMBER_64, data)
+#define DECLARE_TRACEEVAL_STRING(data)	   __TRACEEVAL_DECLARE(STRING, data)
+#define DECLARE_TRACEEVAL_CSTRING(data)	   __TRACEEVAL_DECLARE(STRING, data)
+#define DECLARE_TRACEEVAL_DELTA(data)	   __TRACEEVAL_DECLARE(DELTA, data)
+#define DECLARE_TRACEEVAL_POINTER(data_name, data_release, data_copy)	\
+	{								\
+		.type = TRACEEVAL_TYPE_POINTER,				\
+		.name = (data_name),					\
+		.release = data_release, .copy = data_copy,		\
+	}
+
 #define __TRACEEVAL_DATA(data_type, member, data)			\
 	{  .type = TRACEEVAL_TYPE_##data_type, .member = (data) }
 
@@ -362,6 +380,7 @@ int traceeval_iterator_query(struct traceeval_iterator *iter,
 			     const struct traceeval_data **results);
 void traceeval_iterator_results_release(struct traceeval_iterator *iter,
 					const struct traceeval_data *results);
+int traceeval_iterator_reset(struct traceeval_iterator *iter);
 struct traceeval_stat *traceeval_iterator_stat(struct traceeval_iterator *iter,
 					       const char *val_name);
 int traceeval_iterator_delta_stop(struct traceeval_iterator *iter,

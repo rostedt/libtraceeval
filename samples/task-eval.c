@@ -104,10 +104,7 @@ enum sched_state {
  * sched_switch event.
  */
 static struct traceeval_type cpu_delta_keys[] = {
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "CPU",
-	},
+	DECLARE_TRACEEVAL_NUMBER("CPU"),
 };
 
 /*
@@ -117,10 +114,7 @@ static struct traceeval_type cpu_delta_keys[] = {
  * as RUNNING.
  */
 static struct traceeval_type cpu_delta_vals[] = {
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "Schedule state",
-	},
+	DECLARE_TRACEEVAL_NUMBER("Schedule state"),
 };
 
 static void start_cpu_data(struct traceeval *teval, int cpu, int state,
@@ -190,14 +184,8 @@ int cpu_last_state(struct traceeval *teval, int cpu, int *state)
  * The output will show all the CPUs and their IDLE vs RUNNING states.
  */
 static struct traceeval_type cpu_keys[] = {
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "CPU",
-	},
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "Schedule state",
-	},
+	DECLARE_TRACEEVAL_NUMBER("CPU"),
+	DECLARE_TRACEEVAL_NUMBER("Schedule state"),
 };
 
 /*
@@ -205,10 +193,7 @@ static struct traceeval_type cpu_keys[] = {
  * CPU was in that state.
  */
 static struct traceeval_type cpu_vals[] = {
-	{
-		.type = TRACEEVAL_TYPE_DELTA,
-		.name = DELTA_NAME,
-	},
+	DECLARE_TRACEEVAL_DELTA(DELTA_NAME),
 };
 
 static void insert_cpu_data(struct traceeval *teval, int cpu, int state,
@@ -229,24 +214,15 @@ static void insert_cpu_data(struct traceeval *teval, int cpu, int state,
  * When tracking tasks and threads wake up timings.
  */
 static struct traceeval_type wakeup_delta_keys[] = {
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "PID",
-	},
+	DECLARE_TRACEEVAL_NUMBER("PID"),
 };
 
 /*
  * When finishing the timings of the task being woken up.
  */
 static struct traceeval_type wakeup_delta_vals[] = {
-	{
-		.type = TRACEEVAL_TYPE_STRING,
-		.name = "COMM",
-	},
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "Prio",
-	},
+	DECLARE_TRACEEVAL_STRING("COMM"),
+	DECLARE_TRACEEVAL_NUMBER("Prio"),
 };
 
 static void start_wakeup_data(struct traceeval *teval, int pid,
@@ -292,10 +268,7 @@ static int stop_wakeup_data(struct traceeval *teval, int pid,
  * when scheduling out (for sleep state) or in (for running state).
  */
 static struct traceeval_type task_delta_keys[] = {
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "PID",
-	},
+	DECLARE_TRACEEVAL_NUMBER("PID"),
 };
 
 /*
@@ -304,18 +277,9 @@ static struct traceeval_type task_delta_keys[] = {
  * and the priority it had. This will be saved for the output.
  */
 static struct traceeval_type task_delta_vals[] = {
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "Schedule state"
-	},
-	{
-		.type = TRACEEVAL_TYPE_STRING,
-		.name = "COMM",
-	},
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "Prio",
-	},
+	DECLARE_TRACEEVAL_NUMBER("Schedule state"),
+	DECLARE_TRACEEVAL_STRING("COMM"),
+	DECLARE_TRACEEVAL_NUMBER("Prio"),
 };
 
 static void start_task_data(struct traceeval *teval, int pid, int state,
@@ -367,14 +331,8 @@ static int stop_task_data(struct traceeval *teval, int pid, int *state,
  * they were in: RUNNING, BLOCKED, PREEMPTED, SLEEPING.
  */
 static struct traceeval_type task_keys[] = {
-	{
-		.type = TRACEEVAL_TYPE_STRING,
-		.name = "COMM"
-	},
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "Schedule state"
-	},
+	DECLARE_TRACEEVAL_STRING("COMM"),
+	DECLARE_TRACEEVAL_NUMBER("Schedule state"),
 };
 
 static void release_data(const struct traceeval_type *type,
@@ -400,16 +358,8 @@ static int copy_data(const struct traceeval_type *type,
  * that will be saved in the "data" field.
  */
 static struct traceeval_type task_vals[] = {
-	{
-		.type = TRACEEVAL_TYPE_POINTER,
-		.name = "data",
-		.release = release_data,
-		.copy = copy_data,
-	},
-	{
-		.type = TRACEEVAL_TYPE_DELTA,
-		.name = DELTA_NAME,
-	},
+	DECLARE_TRACEEVAL_POINTER("data", release_data, copy_data),
+	DECLARE_TRACEEVAL_DELTA(DELTA_NAME),
 };
 
 static int insert_task_data(struct traceeval *teval, const char *comm,
@@ -464,28 +414,16 @@ static bool task_data_exists(struct traceeval *teval, const char *comm, void **d
  * and their priority.
  */
 static struct traceeval_type thread_keys[] = {
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "TID",
-	},
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "Prio",
-	},
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "Schedule state",
-	},
+	DECLARE_TRACEEVAL_NUMBER("TID"),
+	DECLARE_TRACEEVAL_NUMBER("Prio"),
+	DECLARE_TRACEEVAL_NUMBER("Schedule state"),
 };
 
 /*
  * Save the timings of the thread/state/prio keys.
  */
 static struct traceeval_type thread_vals[] = {
-	{
-		.type = TRACEEVAL_TYPE_DELTA,
-		.name = DELTA_NAME,
-	},
+	DECLARE_TRACEEVAL_DELTA(DELTA_NAME),
 };
 
 static void insert_thread_data(struct traceeval *teval,
@@ -506,28 +444,16 @@ static void insert_thread_data(struct traceeval *teval,
 }
 
 static struct traceeval_type wakeup_task_keys[] = {
-	{
-		.type = TRACEEVAL_TYPE_STRING,
-		.name = "COMM"
-	},
+	DECLARE_TRACEEVAL_STRING("COMM"),
 };
 
 static struct traceeval_type wakeup_thread_keys[] = {
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "PID"
-	},
-	{
-		.type = TRACEEVAL_TYPE_NUMBER,
-		.name = "Prio"
-	},
+	DECLARE_TRACEEVAL_NUMBER("PID"),
+	DECLARE_TRACEEVAL_NUMBER("Prio"),
 };
 
 static struct traceeval_type wakeup_vals[] = {
-	{
-		.type = TRACEEVAL_TYPE_DELTA,
-		.name = DELTA_NAME,
-	},
+	DECLARE_TRACEEVAL_DELTA(DELTA_NAME),
 };
 
 static void insert_wakeup_task_data(struct traceeval *teval,
