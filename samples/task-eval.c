@@ -91,7 +91,9 @@ enum sched_state {
 	SLEEP,
 	IDLE,
 	ZOMBIE,
+	PARKED,
 	EXITED,
+	DEAD,
 	OTHER,
 	WAKEUP,
 };
@@ -749,6 +751,10 @@ static int get_stop_state(unsigned long long val)
 		return ZOMBIE;
 	if (val & 0x20)
 		return EXITED;
+	if (val & 0x40)
+		return PARKED;
+	if (val & 0x80)
+		return DEAD;
 	return PREEMPT;
 }
 
