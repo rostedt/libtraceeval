@@ -817,7 +817,7 @@ static void sched_out(struct task_data *tdata, const char *comm,
 	/* Update the individual thread as well */
 
 	insert_thread_data(pdata->teval_threads, pid, RUNNING, prio, delta, record->ts);
-	insert_cpu_data(pdata->teval_threads, record->cpu, RUNNING, delta, record->ts);
+	insert_cpu_data(pdata->teval_cpus, record->cpu, RUNNING, delta, record->ts);
 }
 
 static void sched_in(struct task_data *tdata, const char *comm,
