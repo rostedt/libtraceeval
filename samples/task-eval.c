@@ -117,14 +117,17 @@ static struct traceeval_type cpu_delta_vals[] = {
 	DECLARE_TRACEEVAL_NUMBER("Schedule state"),
 };
 
+static ssize_t CPU_DELTA_KEY;
+static ssize_t CPU_DELTA_STATE;
+
 static void start_cpu_data(struct traceeval *teval, int cpu, int state,
 			   unsigned long long ts)
 {
-	struct traceeval_data keys[1];
-	struct traceeval_data vals[1];
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(cpu_delta_keys)];
+	struct traceeval_data vals[TRACEEVAL_ARRAY_SIZE(cpu_delta_vals)];
 
-	TRACEEVAL_SET_NUMBER(keys[0], cpu);
-	TRACEEVAL_SET_NUMBER(vals[0], state);
+	TRACEEVAL_SET_NUMBER(keys[CPU_DELTA_KEY], cpu);
+	TRACEEVAL_SET_NUMBER(vals[CPU_DELTA_STATE], state);
 
 	traceeval_delta_start(teval, keys, vals, ts);
 }
@@ -132,11 +135,11 @@ static void start_cpu_data(struct traceeval *teval, int cpu, int state,
 static void continue_cpu_data(struct traceeval *teval, int cpu, int state,
 			      unsigned long long ts)
 {
-	struct traceeval_data keys[1];
-	struct traceeval_data vals[1];
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(cpu_delta_keys)];
+	struct traceeval_data vals[TRACEEVAL_ARRAY_SIZE(cpu_delta_vals)];
 
-	TRACEEVAL_SET_NUMBER(keys[0], cpu);
-	TRACEEVAL_SET_NUMBER(vals[0], state);
+	TRACEEVAL_SET_NUMBER(keys[CPU_DELTA_KEY], cpu);
+	TRACEEVAL_SET_NUMBER(vals[CPU_DELTA_STATE], state);
 
 	traceeval_delta_continue(teval, keys, vals, ts);
 }
@@ -145,18 +148,18 @@ static int stop_cpu_data(struct traceeval *teval, int cpu, int *state,
 			 unsigned long long ts,
 			 unsigned long long *delta)
 {
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(cpu_delta_keys)];
 	const struct traceeval_data *results;
-	struct traceeval_data keys[1];
 	int ret;
 
-	TRACEEVAL_SET_NUMBER(keys[0], cpu);
+	TRACEEVAL_SET_NUMBER(keys[CPU_DELTA_KEY], cpu);
 
 	ret = traceeval_delta_stop(teval, keys, &results, ts, delta, NULL);
 	if (ret < 1)
 		return ret;
 
 	if (state)
-		*state = results[0].number;
+		*state = results[CPU_DELTA_STATE].number;
 
 	traceeval_results_release(teval, results);
 	return 1;
@@ -164,17 +167,17 @@ static int stop_cpu_data(struct traceeval *teval, int cpu, int *state,
 
 int cpu_last_state(struct traceeval *teval, int cpu, int *state)
 {
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(cpu_delta_keys)];
 	const struct traceeval_data *results;
-	struct traceeval_data keys[1];
 	int ret;
 
-	TRACEEVAL_SET_NUMBER(keys[0], cpu);
+	TRACEEVAL_SET_NUMBER(keys[CPU_DELTA_KEY], cpu);
 
 	ret = traceeval_delta_query(teval, keys, &results, NULL);
 	if (ret < 1)
 		return ret;
 
-	*state = results[0].number;
+	*state = results[CPU_DELTA_STATE].number;
 
 	traceeval_results_release(teval, results);
 	return 1;
@@ -196,16 +199,20 @@ static struct traceeval_type cpu_vals[] = {
 	DECLARE_TRACEEVAL_DELTA(DELTA_NAME),
 };
 
+static ssize_t CPU_KEY;
+static ssize_t CPU_STATE;
+static ssize_t CPU_DELTA;
+
 static void insert_cpu_data(struct traceeval *teval, int cpu, int state,
 			    unsigned long long delta, unsigned long long ts)
 {
-	struct traceeval_data keys[2];
-	struct traceeval_data vals[1];
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(cpu_keys)];
+	struct traceeval_data vals[TRACEEVAL_ARRAY_SIZE(cpu_vals)];
 
-	TRACEEVAL_SET_NUMBER(keys[0], cpu);
-	TRACEEVAL_SET_NUMBER(keys[1], state);
+	TRACEEVAL_SET_NUMBER(keys[CPU_KEY], cpu);
+	TRACEEVAL_SET_NUMBER(keys[CPU_STATE], state);
 
-	TRACEEVAL_SET_DELTA(vals[0], delta, ts);
+	TRACEEVAL_SET_DELTA(vals[CPU_DELTA], delta, ts);
 
 	traceeval_insert(teval, keys, vals);
 }
@@ -225,16 +232,20 @@ static struct traceeval_type wakeup_delta_vals[] = {
 	DECLARE_TRACEEVAL_NUMBER("Prio"),
 };
 
+static ssize_t WAKEUP_DELTA_PID;
+static ssize_t WAKEUP_DELTA_COMM;
+static ssize_t WAKEUP_DELTA_PRIO;
+
 static void start_wakeup_data(struct traceeval *teval, int pid,
 			      const char *comm, int prio, unsigned long long ts)
 {
-	struct traceeval_data keys[1];
-	struct traceeval_data vals[2];
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(wakeup_delta_keys)];
+	struct traceeval_data vals[TRACEEVAL_ARRAY_SIZE(wakeup_delta_vals)];
 
-	TRACEEVAL_SET_NUMBER(keys[0], pid);
+	TRACEEVAL_SET_NUMBER(keys[WAKEUP_DELTA_PID], pid);
 
-	TRACEEVAL_SET_CSTRING(vals[0], comm);
-	TRACEEVAL_SET_NUMBER(vals[1], prio);
+	TRACEEVAL_SET_CSTRING(vals[WAKEUP_DELTA_COMM], comm);
+	TRACEEVAL_SET_NUMBER(vals[WAKEUP_DELTA_PRIO], prio);
 
 	traceeval_delta_start(teval, keys, vals, ts);
 }
@@ -243,21 +254,21 @@ static int stop_wakeup_data(struct traceeval *teval, int pid,
 			    const char **comm, int *prio, unsigned long long ts,
 			    unsigned long long *delta)
 {
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(wakeup_delta_keys)];
 	const struct traceeval_data *results;
-	struct traceeval_data keys[1];
 	int ret;
 
-	TRACEEVAL_SET_NUMBER(keys[0], pid);
+	TRACEEVAL_SET_NUMBER(keys[WAKEUP_DELTA_PID], pid);
 
 	ret = traceeval_delta_stop(teval, keys, &results, ts, delta, NULL);
 	if (ret < 1)
 		return ret;
 
 	if (comm)
-		*comm = results[0].string;
+		*comm = results[WAKEUP_DELTA_COMM].string;
 
 	if (prio)
-		*prio = results[1].number;
+		*prio = results[WAKEUP_DELTA_PRIO].number;
 
 	traceeval_results_release(teval, results);
 	return 1;
@@ -282,17 +293,22 @@ static struct traceeval_type task_delta_vals[] = {
 	DECLARE_TRACEEVAL_NUMBER("Prio"),
 };
 
+static ssize_t TASK_DELTA_PID;
+static ssize_t TASK_DELTA_STATE;
+static ssize_t TASK_DELTA_COMM;
+static ssize_t TASK_DELTA_PRIO;
+
 static void start_task_data(struct traceeval *teval, int pid, int state,
 			    const char *comm, int prio, unsigned long long ts)
 {
-	struct traceeval_data keys[1];
-	struct traceeval_data vals[3];
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(task_delta_keys)];
+	struct traceeval_data vals[TRACEEVAL_ARRAY_SIZE(task_delta_vals)];
 
-	TRACEEVAL_SET_NUMBER(keys[0], pid);
+	TRACEEVAL_SET_NUMBER(keys[TASK_DELTA_PID], pid);
 
-	TRACEEVAL_SET_NUMBER(vals[0], state);
-	TRACEEVAL_SET_CSTRING(vals[1], comm);
-	TRACEEVAL_SET_NUMBER(vals[2], prio);
+	TRACEEVAL_SET_NUMBER(vals[TASK_DELTA_STATE], state);
+	TRACEEVAL_SET_CSTRING(vals[TASK_DELTA_COMM], comm);
+	TRACEEVAL_SET_NUMBER(vals[TASK_DELTA_PRIO], prio);
 
 	traceeval_delta_start(teval, keys, vals, ts);
 }
@@ -301,24 +317,24 @@ static int stop_task_data(struct traceeval *teval, int pid, int *state,
 			  const char **comm, int *prio, unsigned long long ts,
 			  unsigned long long *delta, unsigned long long *save_ts)
 {
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(task_delta_keys)];
 	const struct traceeval_data *results;
-	struct traceeval_data keys[1];
 	int ret;
 
-	TRACEEVAL_SET_NUMBER(keys[0], pid);
+	TRACEEVAL_SET_NUMBER(keys[TASK_DELTA_PID], pid);
 
 	ret = traceeval_delta_stop(teval, keys, &results, ts, delta, save_ts);
 	if (ret < 1)
 		return ret;
 
 	if (state)
-		*state = results[0].number;
+		*state = results[TASK_DELTA_STATE].number;
 
 	if (comm)
-		*comm = results[1].string;
+		*comm = results[TASK_DELTA_COMM].string;
 
 	if (prio)
-		*prio = results[2].number;
+		*prio = results[TASK_DELTA_PRIO].number;
 
 	traceeval_results_release(teval, results);
 	return 1;
@@ -362,15 +378,20 @@ static struct traceeval_type task_vals[] = {
 	DECLARE_TRACEEVAL_DELTA(DELTA_NAME),
 };
 
+static ssize_t TASK_COMM;
+static ssize_t TASK_STATE;
+static ssize_t TASK_DATA;
+static ssize_t TASK_DELTA;
+
 static int insert_task_data(struct traceeval *teval, const char *comm,
 			     int state, void *data, unsigned long long delta,
 			     unsigned long long timestamp)
 {
-	struct traceeval_data keys[2];
-	struct traceeval_data vals[2];
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(task_keys)];
+	struct traceeval_data vals[TRACEEVAL_ARRAY_SIZE(task_vals)];
 
-	TRACEEVAL_SET_CSTRING(keys[0], comm);
-	TRACEEVAL_SET_NUMBER(keys[1], state);
+	TRACEEVAL_SET_CSTRING(keys[TASK_COMM], comm);
+	TRACEEVAL_SET_NUMBER(keys[TASK_STATE], state);
 
 	/*
 	 * Can not have data stored more than once, only save it for
@@ -379,8 +400,8 @@ static int insert_task_data(struct traceeval *teval, const char *comm,
 	if (state != RUNNING)
 		data = NULL;
 
-	TRACEEVAL_SET_POINTER(vals[0], data);
-	TRACEEVAL_SET_DELTA(vals[1], delta, timestamp);
+	TRACEEVAL_SET_POINTER(vals[TASK_DATA], data);
+	TRACEEVAL_SET_DELTA(vals[TASK_DELTA], delta, timestamp);
 
 	return traceeval_insert(teval, keys, vals);
 }
@@ -426,19 +447,24 @@ static struct traceeval_type thread_vals[] = {
 	DECLARE_TRACEEVAL_DELTA(DELTA_NAME),
 };
 
+static ssize_t THREAD_TID;
+static ssize_t THREAD_PRIO;
+static ssize_t THREAD_STATE;
+static ssize_t THREAD_DELTA;
+
 static void insert_thread_data(struct traceeval *teval,
 			       int tid, int state, int prio,
 			       unsigned long long delta,
 			       unsigned long long timestamp)
 {
-	struct traceeval_data keys[3];
-	struct traceeval_data vals[1];
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(thread_keys)];
+	struct traceeval_data vals[TRACEEVAL_ARRAY_SIZE(thread_vals)];
 
-	TRACEEVAL_SET_NUMBER(keys[0], tid);
-	TRACEEVAL_SET_NUMBER(keys[1], prio);
-	TRACEEVAL_SET_NUMBER(keys[2], state);
+	TRACEEVAL_SET_NUMBER(keys[THREAD_TID], tid);
+	TRACEEVAL_SET_NUMBER(keys[THREAD_PRIO], prio);
+	TRACEEVAL_SET_NUMBER(keys[THREAD_STATE], state);
 
-	TRACEEVAL_SET_DELTA(vals[0], delta, timestamp);
+	TRACEEVAL_SET_DELTA(vals[THREAD_DELTA], delta, timestamp);
 
 	traceeval_insert(teval, keys, vals);
 }
@@ -456,17 +482,60 @@ static struct traceeval_type wakeup_vals[] = {
 	DECLARE_TRACEEVAL_DELTA(DELTA_NAME),
 };
 
+static ssize_t WAKEUP_TASK_COMM;
+static ssize_t WAKEUP_THREAD_PID;
+static ssize_t WAKEUP_THREAD_PRIO;
+static ssize_t WAKEUP_DELTA;
+
+#define assign_type(type, name, array) \
+	if ((type = traceeval_type_index(name, array)) < 0)	\
+		die("Invalid index %s for %s", name, #type);
+
+static void init_indexes(void)
+{
+	assign_type(CPU_DELTA_KEY, "CPU", cpu_delta_keys);
+	assign_type(CPU_DELTA_STATE, "Schedule state", cpu_delta_vals);
+
+	assign_type(CPU_KEY, "CPU", cpu_keys);
+	assign_type(CPU_STATE, "Schedule state", cpu_keys);
+	assign_type(CPU_DELTA, DELTA_NAME, cpu_vals);
+
+	assign_type(WAKEUP_DELTA_PID, "PID", wakeup_delta_keys);
+	assign_type(WAKEUP_DELTA_COMM, "COMM", wakeup_delta_vals);
+	assign_type(WAKEUP_DELTA_PRIO, "Prio", wakeup_delta_vals);
+
+	assign_type(TASK_DELTA_PID, "PID", task_delta_keys);
+	assign_type(TASK_DELTA_STATE, "Schedule state", task_delta_vals);
+	assign_type(TASK_DELTA_COMM, "COMM", task_delta_vals);
+	assign_type(TASK_DELTA_PRIO, "Prio", task_delta_vals);
+
+	assign_type(TASK_COMM, "COMM", task_keys);
+	assign_type(TASK_STATE, "Schedule state", task_keys);
+	assign_type(TASK_DATA, "data", task_vals);
+	assign_type(TASK_DELTA, DELTA_NAME, task_vals);
+
+	assign_type(THREAD_TID, "TID", thread_keys);
+	assign_type(THREAD_PRIO, "Prio", thread_keys);
+	assign_type(THREAD_STATE, "Schedule state", thread_keys);
+	assign_type(THREAD_DELTA, DELTA_NAME, thread_vals);
+
+	assign_type(WAKEUP_TASK_COMM, "COMM", wakeup_task_keys);
+	assign_type(WAKEUP_THREAD_PID, "PID", wakeup_thread_keys);
+	assign_type(WAKEUP_THREAD_PRIO, "Prio", wakeup_thread_keys);
+	assign_type(WAKEUP_DELTA, DELTA_NAME, wakeup_vals)
+}
+
 static void insert_wakeup_task_data(struct traceeval *teval,
 				    const char *comm,
 				    unsigned long long delta,
 				    unsigned long long timestamp)
 {
-	struct traceeval_data keys[1];
-	struct traceeval_data vals[1];
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(wakeup_task_keys)];
+	struct traceeval_data vals[TRACEEVAL_ARRAY_SIZE(wakeup_vals)];
 
-	TRACEEVAL_SET_CSTRING(keys[0], comm);
+	TRACEEVAL_SET_CSTRING(keys[WAKEUP_TASK_COMM], comm);
 
-	TRACEEVAL_SET_DELTA(vals[0], delta, timestamp);
+	TRACEEVAL_SET_DELTA(vals[WAKEUP_DELTA], delta, timestamp);
 
 	traceeval_insert(teval, keys, vals);
 }
@@ -476,13 +545,13 @@ static void insert_wakeup_thread_data(struct traceeval *teval,
 				      unsigned long long delta,
 				      unsigned long long timestamp)
 {
-	struct traceeval_data keys[2];
-	struct traceeval_data vals[1];
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(wakeup_thread_keys)];
+	struct traceeval_data vals[TRACEEVAL_ARRAY_SIZE(wakeup_vals)];
 
-	TRACEEVAL_SET_NUMBER(keys[0], tid);
-	TRACEEVAL_SET_NUMBER(keys[1], prio);
+	TRACEEVAL_SET_NUMBER(keys[WAKEUP_THREAD_PID], tid);
+	TRACEEVAL_SET_NUMBER(keys[WAKEUP_THREAD_PRIO], prio);
 
-	TRACEEVAL_SET_DELTA(vals[0], delta, timestamp);
+	TRACEEVAL_SET_DELTA(vals[WAKEUP_DELTA], delta, timestamp);
 
 	traceeval_insert(teval, keys, vals);
 }
@@ -900,22 +969,22 @@ static int compare_pdata(struct traceeval *teval,
 				void *data)
 {
 	struct traceeval_data keysA[] = {
-		DEFINE_TRACEEVAL_CSTRING(	Akeys[0].cstring	),
-		DEFINE_TRACEEVAL_NUMBER(	RUNNING			), };
+		DEFINE_TRACEEVAL_CSTRING(	Akeys[TASK_COMM].cstring	),
+		DEFINE_TRACEEVAL_NUMBER(	RUNNING				), };
 	struct traceeval_data keysB[] = {
-		DEFINE_TRACEEVAL_CSTRING(	Bkeys[0].cstring	),
-		DEFINE_TRACEEVAL_NUMBER(	RUNNING			), };
+		DEFINE_TRACEEVAL_CSTRING(	Bkeys[TASK_COMM].cstring	),
+		DEFINE_TRACEEVAL_NUMBER(	RUNNING				), };
 	struct traceeval_stat *statA;
 	struct traceeval_stat *statB;
 	unsigned long long totalA = -1;
 	unsigned long long totalB = -1;
 
 	/* First check if we are on the same task */
-	if (strcmp(Akeys[0].cstring, Bkeys[0].cstring) == 0) {
+	if (strcmp(Akeys[TASK_COMM].cstring, Bkeys[TASK_COMM].cstring) == 0) {
 		/* Sort decending */
-		if (Bkeys[1].number > Akeys[1].number)
+		if (Bkeys[TASK_STATE].number > Akeys[TASK_STATE].number)
 			return -1;
-		return Bkeys[1].number != Akeys[1].number;
+		return Bkeys[TASK_STATE].number != Akeys[TASK_STATE].number;
 	}
 
 	/* Get the RUNNING values for both processes */
@@ -932,7 +1001,7 @@ static int compare_pdata(struct traceeval *teval,
 	if (totalB > totalA)
 		return 1;
 
-	return strcmp(Bkeys[0].cstring, Akeys[0].cstring);
+	return strcmp(Bkeys[TASK_COMM].cstring, Akeys[TASK_COMM].cstring);
 }
 
 static void display_cpus(struct traceeval *teval)
@@ -948,12 +1017,12 @@ static void display_cpus(struct traceeval *teval)
 
 	printf("\n");
 
-	traceeval_iterator_sort(iter, cpu_keys[0].name, 0, true);
-	traceeval_iterator_sort(iter, cpu_keys[1].name, 1, true);
+	traceeval_iterator_sort(iter, cpu_keys[CPU_KEY].name, 0, true);
+	traceeval_iterator_sort(iter, cpu_keys[CPU_STATE].name, 1, true);
 
 	while (traceeval_iterator_next(iter, &keys) > 0) {
-		int state = keys[1].number;
-		int cpu = keys[0].number;
+		int state = keys[CPU_STATE].number;
+		int cpu = keys[CPU_KEY].number;
 
 		stat = traceeval_iterator_stat(iter, DELTA_NAME);
 		if (!stat)
@@ -1072,18 +1141,18 @@ static void display_threads(struct traceeval *teval, struct traceeval *wake_teva
 	int last_prio = -1;
 
 	/* PID */
-	traceeval_iterator_sort(iter, thread_keys[0].name, 0, true);
+	traceeval_iterator_sort(iter, thread_keys[THREAD_TID].name, 0, true);
 
 	/* PRIO */
-	traceeval_iterator_sort(iter, thread_keys[1].name, 1, true);
+	traceeval_iterator_sort(iter, thread_keys[THREAD_PRIO].name, 1, true);
 
 	/* STATE */
-	traceeval_iterator_sort(iter, thread_keys[2].name, 2, true);
+	traceeval_iterator_sort(iter, thread_keys[THREAD_STATE].name, 2, true);
 
 	while (traceeval_iterator_next(iter, &keys) > 0) {
-		int tid = keys[0].number;
-		int prio = keys[1].number;
-		int state = keys[2].number;
+		int tid = keys[THREAD_TID].number;
+		int prio = keys[THREAD_PRIO].number;
+		int state = keys[THREAD_STATE].number;
 
 		stat = traceeval_iterator_stat(iter, DELTA_NAME);
 		if (!stat)
@@ -1160,7 +1229,7 @@ static void display_processes(struct traceeval *teval, struct traceeval *wake_te
 	while (traceeval_iterator_next(iter, &keys) > 0) {
 		const struct traceeval_data *results;
 		struct process_data *pdata = NULL;
-		const char *comm = keys[0].cstring;
+		const char *comm = keys[TASK_COMM].cstring;
 
 		if (strcmp(comm, last_comm) == 0)
 			continue;
@@ -1173,7 +1242,7 @@ static void display_processes(struct traceeval *teval, struct traceeval *wake_te
 		if (ret < 1)
 			continue; /* ?? */
 
-		pdata = results[0].pointer;
+		pdata = results[TASK_DATA].pointer;
 		traceeval_results_release(teval, results);
 
 		printf("Task: %s\n", comm);
@@ -1206,7 +1275,7 @@ static void display(struct task_data *tdata)
 		pdie("No cpus?");
 
 	while (traceeval_iterator_next(iter, &keys) > 0) {
-		int state = keys[1].number;
+		int state = keys[CPU_STATE].number;
 
 		stat = traceeval_iterator_stat(iter, DELTA_NAME);
 		if (!stat)
@@ -1268,11 +1337,11 @@ static void finish_leftovers(struct task_data *data)
 		traceeval_iterator_delta_stop(iter, &results, data->last_ts,
 					      &delta, NULL);
 
-		pid = keys[0].number;
+		pid = keys[TASK_DELTA_PID].number;
 
-		state = results[0].number;
-		comm = results[1].cstring;
-		prio = results[2].number;
+		state = results[TASK_DELTA_STATE].number;
+		comm = results[TASK_DELTA_COMM].cstring;
+		prio = results[TASK_DELTA_PRIO].number;
 
 		update_thread(data, pid, comm, state, prio, delta, data->last_ts);
 	}
@@ -1329,6 +1398,8 @@ int main (int argc, char **argv)
 
 	if (argc < 1)
 		usage();
+
+	init_indexes();
 
 	handle = tracecmd_open(argv[0], TRACECMD_FL_LOAD_NO_PLUGINS);
 	if (!handle)

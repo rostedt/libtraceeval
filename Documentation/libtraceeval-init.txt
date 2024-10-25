@@ -3,7 +3,8 @@ libtraceeval(3)
 
 NAME
 ----
-traceeval_init, traceeval_init_size, traceeval_release - Create a trace evaluation helper mechanism.
+traceeval_init, traceeval_init_size, traceeval_release, traceeval_type_index, traceeval_type_index_size
+- Create a trace evaluation helper mechanism.
 
 SYNOPSIS
 --------
@@ -15,6 +16,8 @@ struct traceeval pass:[*]*traceeval_init*(struct traceeval_type pass:[*]_keys_, 
 struct traceeval pass:[*]*traceeval_init_size*(struct traceeval_type pass:[*]_keys_, struct traceeval_type pass:[*]_vals_,
 				       int _nr_keys_, int _nr_vals_);
 void *traceeval_release*(struct traceeval pass:[*]_teval_);
+ssize_t *traceeval_type_index*(const char pass:[*]_name_, struct traceeval_type pass:*]_type_);
+ssize_t *traceeval_type_index_size*(const char pass:[*]_name_, struct traceeval_type pass:*]_type_, size_t nr_types);
 --
 
 DESCRIPTION
@@ -164,10 +167,21 @@ requires static size arrays is because it is really just a macro that calles
 The *traceeval_release()* function releases and frees all the resources of
 a traceeval returned by *traceeval_init()* and *traceeval_init_size()*.
 
+The *traceeval_type_index()* is a helper function that is used to find the
+index of a traceeval_type _type_ by its given _name_. If the name is not found, it returns
+-1. This is handy to not have to remember which index belongs to which field.
+By creating variables to hold the indexes, the variables can be used instead.
+The *traceeval_type_index()* requires that _type_ is a static array. If a dynamic
+array is required, then *traceeval_type_index_size()* can be used where _nr_types_
+is the size of the _type_ array.
+
 RETURN VALUE
 ------------
 The *traceeval_init()* and *traceeval_init_size()* both return a descriptor
 to the traceeval or NULL on error.
+
+The *traceeval_type_index()* and *traceeval_type_index_size()* return the index
+of the given _name_ in _type_ or -1 if not found.
 
 EXAMPLE
 -------
@@ -202,13 +216,29 @@ struct traceeval_type sched_keys[] = {
 	},
 };
 
+static ssize_t SCHED_COMM;
+static ssize_t SCHED_PID;
+static ssize_t SCHED_STATE;
+
+static void init_indexes(void)
+{
+	SCHED_COMM = traceeval_type_index("COMM", sched_keys);
+	SCHED_PID = traceeval_type_index("PID", sched_keys);
+	SCHED_STATE = traceeval_type_index("State", sched_keys);
+
+	if (SCHED_COMM < 0 || SCHED_PID < 0 || SCHED_STATE < 0) {
+		printf("Had a typo in assiging indexes\n");
+		exit(-1);
+	}
+}
+
 static int sched_callback(struct tep_event *event, struct tep_record *record,
 			  int cpu, void *data)
 {
 	static struct tep_format_field *pid_field;
 	static struct tep_format_field *comm_field;
 	static struct tep_format_field *state_field;
-	struct traceeval_data keys[3];
+	struct traceeval_data keys[TRACEEVAL_ARRAY_SIZE(sched_keys)];
 	struct traceeval *teval = data;
 	unsigned long long val;
 	char *comm;
@@ -232,9 +262,9 @@ static int sched_callback(struct tep_event *event, struct tep_record *record,
 
 	comm = record->data + comm_field->offset;
 
-	TRACEEVAL_SET_STRING(keys[0], comm);
-	TRACEEVAL_SET_NUMBER(keys[1], pid);
-	TRACEEVAL_SET_NUMBER(keys[2], state);
+	TRACEEVAL_SET_STRING(keys[SCHED_COMM], comm);
+	TRACEEVAL_SET_NUMBER(keys[SCHED_PID], pid);
+	TRACEEVAL_SET_NUMBER(keys[SCHED_STATE], state);
 
 	traceeval_insert(teval, keys, NULL);
 
@@ -243,7 +273,7 @@ static int sched_callback(struct tep_event *event, struct tep_record *record,
 
 static char *get_state(int state)
 {
-	switch (state & 7) {
+	switch (state & 0x1ff) {
 	case 0:
 		return "R";
 	case 1:
@@ -260,17 +290,17 @@ static void display_teval(struct traceeval *teval)
 	const struct traceeval_data *keys;
 
 	/* Sort comms first. */
-	traceeval_iterator_sort(iter, sched_keys[0].name, 0, true);
+	traceeval_iterator_sort(iter, sched_keys[SCHED_COMM].name, 0, true);
 	/* Sort pids next */
-	traceeval_iterator_sort(iter, sched_keys[1].name, 1, true);
+	traceeval_iterator_sort(iter, sched_keys[SCHED_PID].name, 1, true);
 	/* Sort state last */
-	traceeval_iterator_sort(iter, sched_keys[2].name, 2, true);
+	traceeval_iterator_sort(iter, sched_keys[SCHED_STATE].name, 2, true);
 
 	while (traceeval_iterator_next(iter, &keys) > 0) {
 		ssize_t hits = traceeval_hitcount_size(teval, keys, TRACEEVAL_ARRAY_SIZE(sched_keys));
 
 		printf("%s [%ld] %s: %zd\n",
-		       keys[0].string, keys[1].number, get_state(keys[2].number), hits);
+		       keys[SCHED_COMM].string, keys[SCHED_PID].number, get_state(keys[SCHED_STATE].number), hits);
 	}
 	traceeval_iterator_put(iter);
 }
@@ -288,6 +318,8 @@ int main (int argc, char **argv)
 	struct traceeval *teval;
 	bool finished = false;
 	int ret;
+
+	init_indexes();
 
 	teval = traceeval_init(sched_keys, NULL);
 	if (!teval)

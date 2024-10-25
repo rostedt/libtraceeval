@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdarg.h>
+#include <string.h>
 #include <stdbool.h>
 
 /* Data definition interfaces */
@@ -241,6 +242,20 @@ struct traceeval_type {
 	traceeval_data_copy_fn		copy;
 	traceeval_data_hash_fn		hash;
 };
+
+#define traceeval_type_index(name, type)					\
+	traceeval_type_index_size(name, type, TRACEEVAL_ARRAY_SIZE(type))
+
+static inline ssize_t traceeval_type_index_size(const char *name,
+						struct traceeval_type *type,
+						size_t size)
+{
+	for (size_t i = 0; i < size; i++) {
+		if (strcmp(type[i].name, name) == 0)
+			return i;
+	}
+	return -1;
+}
 
 /* Statistics about a given entry element */
 struct traceeval_stat;

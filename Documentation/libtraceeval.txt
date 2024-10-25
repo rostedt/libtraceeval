@@ -17,6 +17,10 @@ Creating and releasing the traceeval resources:
 				       int _nr_keys_, int _nr_vals_);
 	void *traceeval_release*(struct traceeval pass:[*]_teval_);
 
+Helper functions for indexing the traceeval_type and traceveal_data elements:
+	ssize_t *traceeval_type_index*(const char pass:[*]_name_, struct traceeval_type pass:*]_type_);
+	ssize_t *traceeval_type_index_size*(const char pass:[*]_name_, struct traceeval_type pass:*]_type_, size_t nr_types);
+
 Inserting and removing elements from the traceeval:
 	int *traceeval_insert*(struct traceeval pass:[*]_teval_,
 			  const struct traceeval_data pass:[*]_keys_,
